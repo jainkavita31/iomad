@@ -174,3 +174,87 @@
     margin: 0;
     border-radius: var(--cqr-radius);
 }
+
+.block_company_quiz_report .company-quiz-report__actions {
+    padding: 0 1rem 1rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.block_company_quiz_report .company-quiz-report__actions .btn {
+    border-radius: 999px;
+    font-weight: 600;
+}
+
+/* Detailed report page styling. */
+.company-quiz-report-details-wrap {
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 12px;
+    background: var(--bs-body-bg, #fff);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 4px 10px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+}
+
+.company-quiz-report-details-toolbar {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+    background: color-mix(in srgb, var(--bs-primary, #0f6cbf) 5%, var(--bs-body-bg, #fff));
+}
+
+.company-quiz-report-table-wrap {
+    overflow-x: auto;
+}
+
+.company-quiz-report-details {
+    width: 100%;
+    margin-bottom: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.company-quiz-report-details thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: color-mix(in srgb, var(--bs-secondary-bg, #f8f9fa) 92%, var(--bs-primary, #0f6cbf) 8%);
+    border-top: 0;
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+    font-size: 0.78rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--bs-body-color, #212529) 75%, transparent);
+    white-space: nowrap;
+    text-align: center;
+}
+
+.company-quiz-report-details th,
+.company-quiz-report-details td {
+    padding: 0.72rem 0.8rem;
+    vertical-align: middle;
+    text-align: center;
+}
+
+.company-quiz-report-details tbody tr:nth-child(even) td {
+    background: color-mix(in srgb, var(--bs-body-bg, #fff) 96%, var(--bs-primary, #0f6cbf) 4%);
+}
+
+.company-quiz-report-details tbody tr:hover td {
+    background: color-mix(in srgb, var(--bs-body-bg, #fff) 92%, var(--bs-info, #17a2b8) 8%);
+}
+
+.company-quiz-report-details td.cqr-col-num {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.company-quiz-report-details td.cqr-col-course a,
+.company-quiz-report-details td.cqr-col-quiz a {
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.company-quiz-report-details td.cqr-col-course a:hover,
+.company-quiz-report-details td.cqr-col-quiz a:hover {
+    text-decoration: underline;
+}

@@ -303,7 +303,15 @@ class block_company_quiz_report extends block_base {
         );
 
         $grid = html_writer::div($tiles, 'company-quiz-report__grid');
-        $shell = html_writer::div($hero . $selectorhtml . $grid, 'company-quiz-report__shell');
+        $detailsurl = new moodle_url('/blocks/company_quiz_report/details.php', ['companyid' => $companyid]);
+        $detailsbutton = html_writer::link(
+            $detailsurl,
+            get_string('viewdetailedreport', 'block_company_quiz_report'),
+            ['class' => 'btn btn-primary btn-sm']
+        );
+        $actions = html_writer::div($detailsbutton, 'company-quiz-report__actions');
+
+        $shell = html_writer::div($hero . $selectorhtml . $grid . $actions, 'company-quiz-report__shell');
 
         return html_writer::div($shell, 'company-quiz-report');
     }
