@@ -195,15 +195,25 @@ class block_company_quiz_report extends block_base {
             $summary->proctoredquizzescount = 0;
         }
 
-        $summary->usersattemptedcount = $DB->count_records_sql(
-            "SELECT COUNT(DISTINCT qa.id)
-               FROM {company_course} cc
-               JOIN {quiz} q ON q.course = cc.courseid
-               JOIN {quiz_attempts} qa ON qa.quiz = q.id
-              WHERE cc.companyid = :companyid
-                AND qa.preview = 0",
-            ['companyid' => $companyid]
-        );
+        if ($DB->get_manager()->table_exists('quizaccess_main_proctor')) {
+            $summary->usersattemptedcount = $DB->count_records_sql(
+                "SELECT COUNT(DISTINCT qmpa.attemptid)
+                   FROM {company_course} cc
+                   JOIN {quiz} q ON q.course = cc.courseid
+                   JOIN {quizaccess_main_proctor} qmpa ON qmpa.quizid = q.id
+                  WHERE cc.companyid = :companyid
+                    AND qmpa.deleted = 0
+                    AND qmpa.image_status = :imagestatus
+                    AND qmpa.attemptid IS NOT NULL
+                    AND qmpa.attemptid > 0",
+                [
+                    'companyid' => $companyid,
+                    'imagestatus' => 'M',
+                ]
+            );
+        } else {
+            $summary->usersattemptedcount = 0;
+        }
 
         if ($DB->get_manager()->table_exists('quizaccess_main_proctor') &&
             $DB->get_manager()->table_exists('quizaccess_quizproctoring')) {
