@@ -323,6 +323,15 @@ label[for="id_consentcheckbox"] {
     color: #999;
 }
 
+/* Keep Lightbox above any proctoring custom modals/popups. */
+.lightboxOverlay {
+    z-index: 10000000 !important;
+}
+
+.lightbox {
+    z-index: 10000001 !important;
+}
+
 .custom-modal {
     display: none; /* Hidden by default */
     position: fixed;
