@@ -113,6 +113,16 @@
     background: color-mix(in srgb, var(--bs-body-bg, #fff) 94%, #6f42c1 7%);
 }
 
+.block_company_quiz_report .company-quiz-report__tile--attemptedusers {
+    --cqr-accent: var(--bs-teal, #20c997);
+    background: color-mix(in srgb, var(--bs-body-bg, #fff) 92%, var(--bs-teal, #20c997) 8%);
+}
+
+.block_company_quiz_report .company-quiz-report__tile--failedusers {
+    --cqr-accent: var(--bs-danger, #dc3545);
+    background: color-mix(in srgb, var(--bs-body-bg, #fff) 92%, var(--bs-danger, #dc3545) 9%);
+}
+
 .block_company_quiz_report .company-quiz-report__tile-icon {
     flex-shrink: 0;
     width: 2rem;

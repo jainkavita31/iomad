@@ -195,6 +195,42 @@ class block_company_quiz_report extends block_base {
             $summary->proctoredquizzescount = 0;
         }
 
+        $summary->usersattemptedcount = $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT qa.id)
+               FROM {company_course} cc
+               JOIN {quiz} q ON q.course = cc.courseid
+               JOIN {quiz_attempts} qa ON qa.quiz = q.id
+              WHERE cc.companyid = :companyid
+                AND qa.preview = 0",
+            ['companyid' => $companyid]
+        );
+
+        if ($DB->get_manager()->table_exists('quizaccess_main_proctor') &&
+            $DB->get_manager()->table_exists('quizaccess_quizproctoring')) {
+            $summary->proctorfaileduserscount = $DB->count_records_sql(
+                "SELECT COUNT(DISTINCT qmp.attemptid)
+                   FROM {company_course} cc
+                   JOIN {quiz} q ON q.course = cc.courseid
+                   JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
+                   JOIN {quizaccess_main_proctor} qmp ON qmp.quizid = q.id
+                  WHERE cc.companyid = :companyid
+                    AND qp.enableproctoring = :enabled
+                    AND qmp.deleted = 0
+                    AND qmp.image_status = :imagestatus
+                    AND qmp.isautosubmit = :isautosubmit
+                    AND qmp.attemptid IS NOT NULL
+                    AND qmp.attemptid > 0",
+                [
+                    'companyid' => $companyid,
+                    'enabled' => 1,
+                    'imagestatus' => 'M',
+                    'isautosubmit' => 1,
+                ]
+            );
+        } else {
+            $summary->proctorfaileduserscount = 0;
+        }
+
         return $summary;
     }
 
@@ -247,6 +283,24 @@ class block_company_quiz_report extends block_base {
             get_string('statproctor_hint', 'block_company_quiz_report'),
             (int) $summary->proctoredquizzescount
         );
+        $tiles .= $this->render_stat_tile(
+            $output,
+            'attemptedusers',
+            'i/users',
+            'moodle',
+            get_string('statusersattempted', 'block_company_quiz_report'),
+            get_string('statusersattempted_hint', 'block_company_quiz_report'),
+            (int) $summary->usersattemptedcount
+        );
+        $tiles .= $this->render_stat_tile(
+            $output,
+            'failedusers',
+            'i/warning',
+            'moodle',
+            get_string('statusersfailed', 'block_company_quiz_report'),
+            get_string('statusersfailed_hint', 'block_company_quiz_report'),
+            (int) $summary->proctorfaileduserscount
+        );
 
         $grid = html_writer::div($tiles, 'company-quiz-report__grid');
         $shell = html_writer::div($hero . $selectorhtml . $grid, 'company-quiz-report__shell');
@@ -258,7 +312,7 @@ class block_company_quiz_report extends block_base {
      * One statistic tile with icon, value, and labels.
      *
      * @param core_renderer $output
-     * @param string $variant courses|proctor
+     * @param string $variant courses|proctor|attemptedusers|failedusers
      * @param string $iconname
      * @param string $iconcomponent
      * @param string $label
