@@ -1,0 +1,171 @@
+/* Company quiz report block — scoped to block wrapper */
+.block_company_quiz_report .company-quiz-report {
+    --cqr-gap: 0.65rem;
+    --cqr-radius: 12px;
+    --cqr-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.06);
+    --cqr-border: color-mix(in srgb, var(--bs-border-color, #dee2e6) 85%, transparent);
+    font-size: 0.9375rem;
+    line-height: 1.4;
+}
+
+.block_company_quiz_report .company-quiz-report__shell {
+    border: 1px solid var(--cqr-border);
+    border-radius: var(--cqr-radius);
+    box-shadow: var(--cqr-shadow);
+    background: var(--bs-body-bg, #fff);
+    overflow: hidden;
+}
+
+.block_company_quiz_report .company-quiz-report__hero {
+    padding: 1rem 1rem 0.85rem;
+    background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--bs-primary, #0f6cbf) 12%, var(--bs-body-bg, #fff)) 0%,
+        color-mix(in srgb, var(--bs-info, #17a2b8) 8%, var(--bs-body-bg, #fff)) 100%
+    );
+    border-bottom: 1px solid var(--cqr-border);
+}
+
+.block_company_quiz_report .company-quiz-report__eyebrow {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--bs-body-color, #212529) 55%, transparent);
+    margin-bottom: 0.25rem;
+}
+
+.block_company_quiz_report .company-quiz-report__title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--bs-body-color, #212529);
+    word-break: break-word;
+}
+
+.block_company_quiz_report .company-quiz-report__meta {
+    margin: 0.35rem 0 0;
+    font-size: 0.75rem;
+    color: color-mix(in srgb, var(--bs-body-color, #212529) 58%, transparent);
+}
+
+.block_company_quiz_report .company-quiz-report__selector {
+    padding: 0.85rem 1rem 0;
+}
+
+.block_company_quiz_report .company-quiz-report__selector .form-autocomplete-selection,
+.block_company_quiz_report .company-quiz-report__selector .custom-select,
+.block_company_quiz_report .company-quiz-report__selector select {
+    max-width: 100%;
+}
+
+.block_company_quiz_report .company-quiz-report__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--cqr-gap);
+    padding: 0.85rem 1rem 1rem;
+}
+
+@media (max-width: 520px) {
+    .block_company_quiz_report .company-quiz-report__grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.block_company_quiz_report .company-quiz-report__tile {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    padding: 0.65rem 0.7rem;
+    border-radius: 10px;
+    border: 1px solid var(--cqr-border);
+    background: color-mix(in srgb, var(--bs-body-bg, #fff) 92%, var(--bs-primary, #0f6cbf) 8%);
+    min-height: 4.25rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.block_company_quiz_report .company-quiz-report__tile:hover {
+    border-color: color-mix(in srgb, var(--bs-primary, #0f6cbf) 35%, var(--cqr-border));
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.07);
+    transform: translateY(-1px);
+}
+
+.block_company_quiz_report .company-quiz-report__tile::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: 10px 0 0 10px;
+    background: var(--cqr-accent, var(--bs-primary, #0f6cbf));
+}
+
+.block_company_quiz_report .company-quiz-report__tile--courses {
+    --cqr-accent: var(--bs-primary, #0f6cbf);
+}
+
+.block_company_quiz_report .company-quiz-report__tile--quizzes {
+    --cqr-accent: var(--bs-teal, #20c997);
+    background: color-mix(in srgb, var(--bs-body-bg, #fff) 92%, var(--bs-teal, #20c997) 8%);
+}
+
+.block_company_quiz_report .company-quiz-report__tile--proctor {
+    --cqr-accent: #6f42c1;
+    background: color-mix(in srgb, var(--bs-body-bg, #fff) 94%, #6f42c1 7%);
+}
+
+.block_company_quiz_report .company-quiz-report__tile-icon {
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    padding: 0.35rem;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--cqr-accent, var(--bs-primary)) 14%, transparent);
+}
+
+.block_company_quiz_report .company-quiz-report__tile-icon .icon {
+    width: 1.15rem;
+    height: 1.15rem;
+}
+
+.block_company_quiz_report .company-quiz-report__tile-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.block_company_quiz_report .company-quiz-report__tile-value {
+    display: block;
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--bs-body-color, #212529);
+    font-variant-numeric: tabular-nums;
+}
+
+.block_company_quiz_report .company-quiz-report__tile-label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: color-mix(in srgb, var(--bs-body-color, #212529) 62%, transparent);
+    margin-top: 0.15rem;
+}
+
+.block_company_quiz_report .company-quiz-report__tile-hint {
+    display: block;
+    font-size: 0.68rem;
+    color: color-mix(in srgb, var(--bs-body-color, #212529) 52%, transparent);
+    margin-top: 0.2rem;
+    line-height: 1.25;
+}
+
+.block_company_quiz_report .company-quiz-report__empty {
+    margin: 0;
+    border-radius: var(--cqr-radius);
+}
