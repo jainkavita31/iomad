@@ -63,7 +63,7 @@
 
 .block_company_quiz_report .company-quiz-report__grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--cqr-gap);
     padding: 0.85rem 1rem 1rem;
 }
@@ -106,11 +106,6 @@
 
 .block_company_quiz_report .company-quiz-report__tile--courses {
     --cqr-accent: var(--bs-primary, #0f6cbf);
-}
-
-.block_company_quiz_report .company-quiz-report__tile--quizzes {
-    --cqr-accent: var(--bs-teal, #20c997);
-    background: color-mix(in srgb, var(--bs-body-bg, #fff) 92%, var(--bs-teal, #20c997) 8%);
 }
 
 .block_company_quiz_report .company-quiz-report__tile--proctor {

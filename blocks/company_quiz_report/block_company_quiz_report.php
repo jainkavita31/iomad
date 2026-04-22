@@ -181,14 +181,6 @@ class block_company_quiz_report extends block_base {
 
         $sqlparams = ['companyid' => $companyid, 'enabled' => 1];
 
-        $summary->quizzescount = $DB->count_records_sql(
-            "SELECT COUNT(DISTINCT q.id)
-               FROM {company_course} cc
-               JOIN {quiz} q ON q.course = cc.courseid
-              WHERE cc.companyid = :companyid",
-            ['companyid' => $companyid]
-        );
-
         if ($DB->get_manager()->table_exists('quizaccess_quizproctoring')) {
             $summary->proctoredquizzescount = $DB->count_records_sql(
                 "SELECT COUNT(DISTINCT q.id)
@@ -248,15 +240,6 @@ class block_company_quiz_report extends block_base {
         );
         $tiles .= $this->render_stat_tile(
             $output,
-            'quizzes',
-            'monologo',
-            'mod_quiz',
-            get_string('statquizzes', 'block_company_quiz_report'),
-            get_string('statquizzes_hint', 'block_company_quiz_report'),
-            (int) $summary->quizzescount
-        );
-        $tiles .= $this->render_stat_tile(
-            $output,
             'proctor',
             't/locked',
             'moodle',
@@ -275,7 +258,7 @@ class block_company_quiz_report extends block_base {
      * One statistic tile with icon, value, and labels.
      *
      * @param core_renderer $output
-     * @param string $variant courses|quizzes|proctor
+     * @param string $variant courses|proctor
      * @param string $iconname
      * @param string $iconcomponent
      * @param string $label
