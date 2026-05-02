@@ -15,9 +15,9 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Capabilities for company quiz report block.
+ * Capabilities for local_dashboard.
  *
- * @package   block_company_quiz_report
+ * @package   local_dashboard
  * @copyright 2026
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -25,25 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $capabilities = [
-    'block/company_quiz_report:addinstance' => [
-        'captype' => 'write',
-        'contextlevel' => CONTEXT_BLOCK,
-        'archetypes' => [
-            'editingteacher' => CAP_ALLOW,
-            'manager' => CAP_ALLOW,
-            'companymanager' => CAP_ALLOW,
-        ],
-        'clonepermissionsfrom' => 'moodle/site:manageblocks',
-    ],
-    'block/company_quiz_report:myaddinstance' => [
-        'captype' => 'write',
-        'contextlevel' => CONTEXT_SYSTEM,
-        'archetypes' => [
-            'user' => CAP_ALLOW,
-        ],
-        'clonepermissionsfrom' => 'moodle/my:manageblocks',
-    ],
-    'block/company_quiz_report:view' => [
+    'local/dashboard:view' => [
         'captype' => 'read',
         'contextlevel' => CONTEXT_COMPANY,
         'archetypes' => [
@@ -52,7 +34,6 @@ $capabilities = [
             'clientadministrator' => CAP_ALLOW,
             'clientreporter' => CAP_ALLOW,
             'companyreporter' => CAP_ALLOW,
-            'manager' => CAP_ALLOW,
         ],
     ],
 ];

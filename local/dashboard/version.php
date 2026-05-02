@@ -15,9 +15,9 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Block version details.
+ * Local dashboard version details.
  *
- * @package   block_company_quiz_report
+ * @package   local_dashboard
  * @copyright 2026
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -25,8 +25,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->release = '1.0.0';
-$plugin->version = 2026042117;
+$plugin->version = 2026043013;
 $plugin->requires = 2024100700;
-$plugin->component = 'block_company_quiz_report';
+$plugin->component = 'local_dashboard';
 $plugin->supported = [405, 405];
 $plugin->maturity = MATURITY_STABLE;

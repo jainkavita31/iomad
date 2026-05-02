@@ -24,8 +24,6 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once($CFG->dirroot . '/local/iomad/lib/company.php');
-
 /**
  * Company quiz/proctoring report block.
  */
@@ -77,7 +75,7 @@ class block_company_quiz_report extends block_base {
 
         $systemcontext = context_system::instance();
 
-        $companyoptions = company::get_companies_select(false, false, true, 'name');
+        $companyoptions = $this->get_company_options();
         if (empty($companyoptions)) {
             $this->content->text = html_writer::div(
                 html_writer::div(
@@ -97,12 +95,12 @@ class block_company_quiz_report extends block_base {
 
         // Capability is defined at CONTEXT_COMPANY; check in company context (not block context).
         $companycontext = \core\context\company::instance($selectedcompanyid);
-        if (!iomad::has_capability('block/company_quiz_report:view', $companycontext, $selectedcompanyid)) {
+        if (!has_capability('block/company_quiz_report:view', $companycontext)) {
             return $this->content;
         }
 
         $selectorhtml = '';
-        $canviewallcompanies = iomad::has_capability('block/iomad_company_admin:company_view_all', $systemcontext);
+        $canviewallcompanies = has_capability('moodle/site:config', $systemcontext);
         if ($canviewallcompanies || count($companyoptions) > 1) {
             $selectorhtml = $this->render_company_selector($companyoptions, $selectedcompanyid, $OUTPUT);
         }
@@ -126,12 +124,19 @@ class block_company_quiz_report extends block_base {
      * @return int
      */
     private function resolve_selected_company(array $companyoptions): int {
+        global $SESSION, $USER, $DB;
+
         $requestedcompanyid = optional_param('companyid', 0, PARAM_INT);
         if ($requestedcompanyid > 0 && array_key_exists($requestedcompanyid, $companyoptions)) {
             return $requestedcompanyid;
         }
 
-        $defaultcompanyid = iomad::get_my_companyid(context_system::instance(), false);
+        $defaultcompanyid = 0;
+        if (!empty($SESSION->currenteditingcompany)) {
+            $defaultcompanyid = (int) $SESSION->currenteditingcompany;
+        } else {
+            $defaultcompanyid = (int) $DB->get_field('company_users', 'companyid', ['userid' => $USER->id], IGNORE_MULTIPLE);
+        }
         if ($defaultcompanyid > 0 && array_key_exists($defaultcompanyid, $companyoptions)) {
             return $defaultcompanyid;
         }
@@ -324,6 +329,34 @@ class block_company_quiz_report extends block_base {
         $shell = html_writer::div($hero . $selectorhtml . $grid . $actions, 'company-quiz-report__shell');
 
         return html_writer::div($shell, 'company-quiz-report');
+    }
+
+    /**
+     * Get list of accessible companies for current user.
+     *
+     * @return array<int,string>
+     */
+    private function get_company_options(): array {
+        global $DB, $USER;
+
+        if (has_capability('moodle/site:config', context_system::instance())) {
+            return $DB->get_records_sql_menu(
+                "SELECT id, name
+                   FROM {company}
+               ORDER BY name",
+                []
+            );
+        }
+
+        return $DB->get_records_sql_menu(
+            "SELECT DISTINCT c.id, c.name
+               FROM {company} c
+               JOIN {company_users} cu ON cu.companyid = c.id
+              WHERE cu.userid = :userid
+                AND cu.suspended = 0
+           ORDER BY c.name",
+            ['userid' => $USER->id]
+        );
     }
 
     /**

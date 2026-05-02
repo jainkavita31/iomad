@@ -23,19 +23,40 @@
  */
 
 require_once(__DIR__ . '/../../config.php');
-require_once($CFG->dirroot . '/local/iomad/lib/company.php');
-
 require_login();
 
 $systemcontext = context_system::instance();
-$companyoptions = company::get_companies_select(false, false, true, 'name');
+$companyoptions = [];
+if (has_capability('moodle/site:config', $systemcontext)) {
+    $companyoptions = $DB->get_records_sql_menu(
+        "SELECT id, name
+           FROM {company}
+       ORDER BY name",
+        []
+    );
+} else {
+    $companyoptions = $DB->get_records_sql_menu(
+        "SELECT DISTINCT c.id, c.name
+           FROM {company} c
+           JOIN {company_users} cu ON cu.companyid = c.id
+          WHERE cu.userid = :userid
+            AND cu.suspended = 0
+       ORDER BY c.name",
+        ['userid' => $USER->id]
+    );
+}
 
 $requestedcompanyid = optional_param('companyid', 0, PARAM_INT);
 $selectedcompanyid = 0;
 if ($requestedcompanyid > 0 && array_key_exists($requestedcompanyid, $companyoptions)) {
     $selectedcompanyid = $requestedcompanyid;
 } else {
-    $defaultcompanyid = iomad::get_my_companyid($systemcontext, false);
+    $defaultcompanyid = 0;
+    if (!empty($SESSION->currenteditingcompany)) {
+        $defaultcompanyid = (int) $SESSION->currenteditingcompany;
+    } else {
+        $defaultcompanyid = (int) $DB->get_field('company_users', 'companyid', ['userid' => $USER->id], IGNORE_MULTIPLE);
+    }
     if ($defaultcompanyid > 0 && array_key_exists($defaultcompanyid, $companyoptions)) {
         $selectedcompanyid = $defaultcompanyid;
     } else if (!empty($companyoptions)) {
@@ -56,7 +77,7 @@ if (!$selectedcompanyid) {
 }
 
 $companycontext = \core\context\company::instance($selectedcompanyid);
-iomad::require_capability('block/company_quiz_report:view', $companycontext, $selectedcompanyid);
+require_capability('block/company_quiz_report:view', $companycontext);
 
 $companyname = $companyoptions[$selectedcompanyid] ?? ('ID ' . $selectedcompanyid);
 

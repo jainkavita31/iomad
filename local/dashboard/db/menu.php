@@ -15,18 +15,30 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Block version details.
+ * Menu entries for local_dashboard.
  *
- * @package   block_company_quiz_report
+ * @package   local_dashboard
  * @copyright 2026
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
-$plugin->release = '1.0.0';
-$plugin->version = 2026042117;
-$plugin->requires = 2024100700;
-$plugin->component = 'block_company_quiz_report';
-$plugin->supported = [405, 405];
-$plugin->maturity = MATURITY_STABLE;
+/**
+ * Define menu items.
+ *
+ * @return array
+ */
+function local_dashboard_menu(): array {
+    return [
+        'dashboard' => [
+            'category' => 'Reports',
+            'tab' => 1,
+            'name' => get_string('pluginname', 'local_dashboard'),
+            'url' => '/local/dashboard/index.php',
+            'cap' => 'local/dashboard:view',
+            'icondefault' => 'report',
+            'style' => 'report',
+            'icon' => 'fa-tachometer',
+            'iconsmall' => 'fa-line-chart',
+        ],
+    ];
+}
