@@ -24,6 +24,9 @@
 
 require_once(__DIR__ . '/../../config.php');
 require_once(__DIR__ . '/lib.php');
+require_once(__DIR__ . '/classes/local/index_snapshot.php');
+
+use local_dashboard\local\index_snapshot;
 
 require_login();
 
@@ -43,296 +46,31 @@ $fromtime = $r->fromtime;
 $baseparams = $r->baseparams;
 $quizsql = $r->quizsql;
 
-$attemptfrom = " FROM {quiz_attempts} qa
-                 JOIN {quiz} q ON q.id = qa.quiz
-                 JOIN {company_course} cc ON cc.courseid = q.course
-                 JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id ";
-$attemptwhere = " WHERE cc.companyid = :companyid
-                    AND qp.enableproctoring = 1
-                    AND qa.preview = 0
-                    AND qa.timestart >= :fromtime
-                    $quizsql ";
+$indexfromcache = false;
+$tableexists = $DB->get_manager()->table_exists('local_dashboard_index_cache');
+$assessmentscompleted = 0;
+$assessmentsinprogress = 0;
 
-$totalcandidates = (int) $DB->count_records_sql(
-    "SELECT COUNT(DISTINCT qa.userid) " . $attemptfrom . $attemptwhere,
-    $baseparams
-);
-$assessmentsconducted = (int) $DB->count_records_sql(
-    "SELECT COUNT(DISTINCT q.id) " . $attemptfrom . $attemptwhere,
-    $baseparams
-);
-$totalsessions = (int) $DB->count_records_sql(
-    "SELECT COUNT(DISTINCT qa.id) " . $attemptfrom . $attemptwhere,
-    $baseparams
-);
-
-$totalalerts = (int) $DB->count_records_sql(
-    "SELECT COUNT(pd.id)
-       FROM {quizaccess_proctor_data} pd
-       JOIN {quiz_attempts} qa ON qa.id = pd.attemptid
-       JOIN {quiz} q ON q.id = qa.quiz
-       JOIN {company_course} cc ON cc.courseid = q.course
-       JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
-      WHERE cc.companyid = :companyid
-        AND qp.enableproctoring = 1
-        AND qa.preview = 0
-        AND qa.timestart >= :fromtime
-        AND pd.deleted = 0
-        AND pd.status != ''
-        $quizsql",
-    $baseparams
-);
-
-$flaggedsessions = (int) $DB->count_records_sql(
-    "SELECT COUNT(DISTINCT qa.id)
-       FROM {quiz_attempts} qa
-       JOIN {quiz} q ON q.id = qa.quiz
-       JOIN {company_course} cc ON cc.courseid = q.course
-       JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
-      WHERE cc.companyid = :companyid
-        AND qp.enableproctoring = 1
-        AND qa.preview = 0
-        AND qa.timestart >= :fromtime
-        $quizsql
-        AND EXISTS (
-            SELECT 1
-              FROM {quizaccess_proctor_data} pd
-             WHERE pd.attemptid = qa.id
-               AND pd.quizid = q.id
-               AND pd.deleted = 0
-               AND pd.status != ''
-        )",
-    $baseparams
-);
-
-$reviewbacklog = (int) $DB->count_records_sql(
-    "SELECT COUNT(DISTINCT qmp.attemptid)
-       FROM {quizaccess_main_proctor} qmp
-       JOIN {quiz_attempts} qa ON qa.id = qmp.attemptid
-       JOIN {quiz} q ON q.id = qa.quiz
-       JOIN {company_course} cc ON cc.courseid = q.course
-       JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
-      WHERE cc.companyid = :companyid
-        AND qp.enableproctoring = 1
-        AND qa.preview = 0
-        AND qa.timestart >= :fromtime
-        AND qmp.deleted = 0
-        AND qmp.image_status = 'M'
-        AND qmp.isautosubmit = 1
-        $quizsql",
-    $baseparams
-);
-
-$avgscorerecord = $DB->get_record_sql(
-    "SELECT AVG((qa.sumgrades * 100.0) / NULLIF(q.sumgrades, 0)) AS avgscore
-       FROM {quiz_attempts} qa
-       JOIN {quiz} q ON q.id = qa.quiz
-       JOIN {company_course} cc ON cc.courseid = q.course
-       JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
-      WHERE cc.companyid = :companyid
-        AND qp.enableproctoring = 1
-        AND qa.preview = 0
-        AND qa.timefinish > 0
-        AND qa.timestart >= :fromtime
-        $quizsql",
-    $baseparams
-);
-$averagescore = !empty($avgscorerecord->avgscore) ? (float) $avgscorerecord->avgscore : 0.0;
-
-$statuscounts = [
-    'tabswitch' => 0,
-    'facemismatch' => 0,
-    'absencedetected' => 0,
-    'multiplepeople' => 0,
-    'otheranomalies' => 0,
-];
-$statusrecords = $DB->get_records_sql(
-    "SELECT pd.status, COUNT(pd.id) AS cnt
-       FROM {quizaccess_proctor_data} pd
-       JOIN {quiz_attempts} qa ON qa.id = pd.attemptid
-       JOIN {quiz} q ON q.id = qa.quiz
-       JOIN {company_course} cc ON cc.courseid = q.course
-       JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
-      WHERE cc.companyid = :companyid
-        AND qp.enableproctoring = 1
-        AND qa.preview = 0
-        AND qa.timestart >= :fromtime
-        AND pd.deleted = 0
-        AND pd.status != ''
-        $quizsql
-   GROUP BY pd.status",
-    $baseparams
-);
-foreach ($statusrecords as $statusrecord) {
-    $status = strtolower((string) $statusrecord->status);
-    $count = (int) $statusrecord->cnt;
-    if (in_array($status, ['minimizedetected', 'appchange', 'tabswitch'], true)) {
-        $statuscounts['tabswitch'] += $count;
-    } else if (in_array($status, ['nomatchfound', 'facemismatch', 'profilemismatch'], true)) {
-        $statuscounts['facemismatch'] += $count;
-    } else if (in_array($status, ['nofacedetected', 'eyesnotopened', 'nocameradetected', 'nocameradisabled'], true)) {
-        $statuscounts['absencedetected'] += $count;
-    } else if ($status === 'multifacesdetected') {
-        $statuscounts['multiplepeople'] += $count;
-    } else {
-        $statuscounts['otheranomalies'] += $count;
+if ($quizid === 0 && $tableexists) {
+    $cachedpack = index_snapshot::load($companyid, $timerange, 0);
+    if ($cachedpack && isset($cachedpack['payload']->totalsessions)) {
+        $payload = $cachedpack['payload'];
+        foreach (index_snapshot::PAYLOAD_KEYS as $prop) {
+            ${$prop} = property_exists($payload, $prop) ? $payload->$prop : 0;
+        }
+        $indexfromcache = true;
     }
 }
 
-$attemptriskrows = $DB->get_records_sql(
-    "SELECT qmp.attemptid,
-            MAX(qmp.isautosubmit) AS isautosubmit,
-            SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) AS warningcount
-       FROM {quizaccess_main_proctor} qmp
-       JOIN {quiz_attempts} qa ON qa.id = qmp.attemptid
-       JOIN {quiz} q ON q.id = qa.quiz
-       JOIN {company_course} cc ON cc.courseid = q.course
-       JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
-       LEFT JOIN {quizaccess_proctor_data} pd ON pd.attemptid = qmp.attemptid
-                                          AND pd.quizid = q.id
-      WHERE cc.companyid = :companyid
-        AND qp.enableproctoring = 1
-        AND qa.preview = 0
-        AND qa.timestart >= :fromtime
-        AND qmp.deleted = 0
-        AND qmp.image_status = 'M'
-        $quizsql
-   GROUP BY qmp.attemptid",
-    $baseparams
-);
-
-$highriskpending = 0;
-$mediumriskpending = 0;
-$lowriskpending = 0;
-foreach ($attemptriskrows as $attemptrow) {
-    $warningcount = (int) $attemptrow->warningcount;
-    $isautosubmit = (int) $attemptrow->isautosubmit;
-    if ($isautosubmit || $warningcount >= 6) {
-        $highriskpending++;
-    } else if ($warningcount >= 3) {
-        $mediumriskpending++;
-    } else if ($warningcount >= 1) {
-        $lowriskpending++;
+if (!$indexfromcache) {
+    $payload = index_snapshot::compute_data($r);
+    foreach (index_snapshot::PAYLOAD_KEYS as $prop) {
+        ${$prop} = property_exists($payload, $prop) ? $payload->$prop : 0;
+    }
+    if ($quizid === 0 && $tableexists) {
+        index_snapshot::store($companyid, $timerange, 0, $payload);
     }
 }
-$autocleared = max($totalsessions - ($lowriskpending + $mediumriskpending + $highriskpending), 0);
-
-$assessmentstats = local_dashboard_fetch_assessment_stats($companyid, $fromtime, $quizsql, $baseparams);
-
-$scorestats = $DB->get_record_sql(
-    "SELECT
-            SUM(CASE WHEN scorepct >= 0 AND scorepct <= 40 THEN 1 ELSE 0 END) AS c0_40,
-            SUM(CASE WHEN scorepct > 40 AND scorepct <= 50 THEN 1 ELSE 0 END) AS c41_50,
-            SUM(CASE WHEN scorepct > 50 AND scorepct <= 60 THEN 1 ELSE 0 END) AS c51_60,
-            SUM(CASE WHEN scorepct > 60 AND scorepct <= 75 THEN 1 ELSE 0 END) AS c61_75,
-            SUM(CASE WHEN scorepct > 75 AND scorepct <= 90 THEN 1 ELSE 0 END) AS c76_90,
-            SUM(CASE WHEN scorepct > 90 THEN 1 ELSE 0 END) AS c91_100,
-            AVG(scorepct) AS avgscore,
-            SUM(CASE WHEN scorepct >= 50 THEN 1 ELSE 0 END) AS passcount,
-            COUNT(*) AS totalcount
-       FROM (
-            SELECT (qa.sumgrades * 100.0) / NULLIF(q.sumgrades, 0) AS scorepct
-              FROM {quiz_attempts} qa
-              JOIN {quiz} q ON q.id = qa.quiz
-              JOIN {company_course} cc ON cc.courseid = q.course
-              JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
-             WHERE cc.companyid = :companyid
-               AND qp.enableproctoring = 1
-               AND qa.preview = 0
-               AND qa.timefinish > 0
-               AND qa.timestart >= :fromtime
-               $quizsql
-       ) scored",
-    $baseparams
-);
-
-$scorevalues = $DB->get_fieldset_sql(
-    "SELECT (qa.sumgrades * 100.0) / NULLIF(q.sumgrades, 0) AS scorepct
-       FROM {quiz_attempts} qa
-       JOIN {quiz} q ON q.id = qa.quiz
-       JOIN {company_course} cc ON cc.courseid = q.course
-       JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
-      WHERE cc.companyid = :companyid
-        AND qp.enableproctoring = 1
-        AND qa.preview = 0
-        AND qa.timefinish > 0
-        AND qa.timestart >= :fromtime
-        $quizsql
-   ORDER BY scorepct",
-    $baseparams
-);
-$medianscore = 0.0;
-if (!empty($scorevalues)) {
-    $count = count($scorevalues);
-    $mid = intdiv($count, 2);
-    if ($count % 2) {
-        $medianscore = (float) $scorevalues[$mid];
-    } else {
-        $medianscore = ((float) $scorevalues[$mid - 1] + (float) $scorevalues[$mid]) / 2;
-    }
-}
-$passrate = !empty($scorestats->totalcount) ? (((float) $scorestats->passcount / (float) $scorestats->totalcount) * 100.0) : 0.0;
-
-$topperformers = $DB->get_records_sql(
-    "SELECT qa.userid,
-            u.firstname,
-            u.lastname,
-            q.id AS quizid,
-            q.name AS quizname,
-            MAX((qa.sumgrades * 100.0) / NULLIF(q.sumgrades, 0)) AS bestscore,
-            MAX(CASE WHEN qmp.isautosubmit = 1 THEN 1 ELSE 0 END) AS failedflag
-       FROM {quiz_attempts} qa
-       JOIN {user} u ON u.id = qa.userid
-       JOIN {quiz} q ON q.id = qa.quiz
-       JOIN {company_course} cc ON cc.courseid = q.course
-       JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
-       LEFT JOIN {quizaccess_main_proctor} qmp ON qmp.attemptid = qa.id
-                                           AND qmp.deleted = 0
-                                           AND qmp.image_status = 'M'
-      WHERE cc.companyid = :companyid
-        AND qp.enableproctoring = 1
-        AND qa.preview = 0
-        AND qa.timefinish > 0
-        AND qa.timestart >= :fromtime
-        $quizsql
-   GROUP BY qa.userid, u.firstname, u.lastname, q.id, q.name
-   ORDER BY bestscore DESC",
-    $baseparams,
-    0,
-    10
-);
-
-$queueparams = $baseparams;
-$priorityqueue = $DB->get_records_sql(
-    "SELECT qmp.attemptid,
-            u.id AS userid,
-            u.firstname,
-            u.lastname,
-            q.id AS quizid,
-            q.name AS quizname,
-            SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) AS alertcount,
-            MAX(qmp.isautosubmit) AS isautosubmit
-       FROM {quizaccess_main_proctor} qmp
-       JOIN {quiz_attempts} qa ON qa.id = qmp.attemptid
-       JOIN {user} u ON u.id = qa.userid
-       JOIN {quiz} q ON q.id = qa.quiz
-       JOIN {company_course} cc ON cc.courseid = q.course
-       JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
-       LEFT JOIN {quizaccess_proctor_data} pd ON pd.attemptid = qmp.attemptid
-                                          AND pd.quizid = q.id
-      WHERE cc.companyid = :companyid
-        AND qp.enableproctoring = 1
-        AND qa.preview = 0
-        AND qa.timestart >= :fromtime
-        AND qmp.deleted = 0
-        AND qmp.image_status = 'M'
-        $quizsql
-   GROUP BY qmp.attemptid, u.id, u.firstname, u.lastname, q.id, q.name
-   ORDER BY alertcount DESC, isautosubmit DESC",
-    $queueparams,
-    0,
-    10
-);
 
 $pageurl = new moodle_url('/local/dashboard/index.php', [
     'timerange' => $timerange,
@@ -342,30 +80,25 @@ $pageurl = new moodle_url('/local/dashboard/index.php', [
 $PAGE->set_url($pageurl);
 $PAGE->set_context($companycontext);
 $PAGE->set_pagelayout('report');
-$PAGE->set_title(get_string('heading', 'local_dashboard'));
-$PAGE->set_heading(get_string('heading', 'local_dashboard'));
+$PAGE->set_title($companyname);
+$PAGE->set_heading('');
 $PAGE->requires->css(new moodle_url('/local/dashboard/styles.css'));
 
 echo $OUTPUT->header();
 echo html_writer::start_div('local-dashboard');
 
-echo html_writer::start_div('ld-page-intro');
-echo html_writer::tag('h2', get_string('heading', 'local_dashboard'), ['class' => 'ld-page-title']);
-echo html_writer::div(
-    get_string('lastupdated', 'local_dashboard', userdate(time(), get_string('strftimedatetimeshort', 'langconfig'))),
-    'ld-page-updated'
-);
+if (optional_param('dashboardsynced', 0, PARAM_INT)) {
+    echo $OUTPUT->notification(get_string('indexsyncok', 'local_dashboard'), 'success');
+}
+
+$syncurl = new moodle_url('/local/dashboard/sync.php', array_merge(local_dashboard_filter_url_params($r), ['sesskey' => sesskey()]));
+echo html_writer::start_div('ld-cache-sync-row');
+echo html_writer::span(get_string('indexsynctopdesc', 'local_dashboard'), 'ld-cache-hint');
+echo html_writer::link($syncurl, get_string('syncnow', 'local_dashboard'), ['class' => 'btn btn-secondary ld-sync-now']);
 echo html_writer::end_div();
 
 echo html_writer::start_tag('form', ['method' => 'get', 'action' => new moodle_url('/local/dashboard/index.php'), 'class' => 'ld-filters']);
-echo html_writer::start_div('ld-filter-item');
-$companylabel = get_string('selectcompany', 'local_dashboard');
-if (str_starts_with($companylabel, '[[')) {
-    $companylabel = 'Company';
-}
-echo html_writer::tag('label', $companylabel, ['for' => 'id_companyid']);
-echo html_writer::select($companyoptions, 'companyid', $companyid, false, ['id' => 'id_companyid']);
-echo html_writer::end_div();
+echo local_dashboard_filter_company_controls_html($r);
 echo html_writer::start_div('ld-filter-item');
 echo html_writer::tag('label', get_string('filtertimerange', 'local_dashboard'), ['for' => 'id_timerange']);
 echo html_writer::select($timerangeoptions, 'timerange', $timerange, false, ['id' => 'id_timerange']);
@@ -392,7 +125,10 @@ $kpis = [
         'label' => 'assessmentsconducted',
         'value' => number_format($assessmentsconducted),
         'accent' => 'navy',
-        'sub' => get_string('kpi_assessmentssub', 'local_dashboard', $assessmentsconducted),
+        'sub' => get_string('kpi_assessmentssplit', 'local_dashboard', (object) [
+            'completed' => number_format((int) $assessmentscompleted),
+            'inprogress' => number_format((int) $assessmentsinprogress),
+        ]),
     ],
     [
         'label' => 'flaggedsessions',
@@ -467,20 +203,9 @@ $queuetable->head = [
 $queuetable->attributes['class'] = 'generaltable ld-table';
 $queuetable->data = [];
 foreach ($priorityqueue as $row) {
+    [$severitykey, $statuskey] = local_dashboard_queue_row_status_keys($row);
     $alerts = (int) $row->alertcount;
-    $severitykey = 'severitylow';
-    $statuskey = 'statusclean';
-    if ((int) $row->isautosubmit === 1 || $alerts >= 6) {
-        $severitykey = 'severitycritical';
-        $statuskey = 'statuspending';
-    } else if ($alerts >= 3) {
-        $severitykey = 'severityhigh';
-        $statuskey = 'statuspending';
-    } else if ($alerts >= 1) {
-        $severitykey = 'severitymedium';
-        $statuskey = 'statuspending';
-    }
-    $reviewlink = local_dashboard_proctor_reviewattempts_link_html((int) $row->userid, (int) $row->quizid);
+    $reviewlink = local_dashboard_proctor_reviewattempts_link_html((int) $row->userid, (int) $row->quizid, [], (int) $companyid);
     $sevpill = 'ld-pill ld-pill-sev-' . preg_replace('/^severity/', '', $severitykey);
     $statpill = 'ld-pill ld-pill-stat-' . preg_replace('/^status/', '', $statuskey);
     $queuetable->data[] = [
@@ -522,7 +247,7 @@ foreach ($topperformers as $row) {
     $clean = ((int) $row->failedflag !== 1);
     $statuspill = $clean
         ? html_writer::span(get_string('statusclean', 'local_dashboard'), 'ld-pill ld-pill-stat-clean')
-        : html_writer::span(get_string('statuspending', 'local_dashboard'), 'ld-pill ld-pill-stat-pending');
+        : html_writer::span(get_string('statusalerts', 'local_dashboard'), 'ld-pill ld-pill-stat-pending');
     $name = fullname((object) ['firstname' => $row->firstname, 'lastname' => $row->lastname]);
     $candidcell = html_writer::div($name, 'ld-candidate-name') .
         html_writer::div(

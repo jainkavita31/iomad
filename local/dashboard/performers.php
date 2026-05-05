@@ -34,7 +34,6 @@ if ($r === null) {
 
 $companyid = $r->companyid;
 $companycontext = $r->companycontext;
-$companyoptions = $r->companyoptions;
 $companyname = $r->companyname;
 $timerange = $r->timerange;
 $quizid = $r->quizid;
@@ -52,32 +51,7 @@ $PAGE->set_title(get_string('performerspagetitle', 'local_dashboard'));
 $PAGE->set_heading(get_string('performerspagetitle', 'local_dashboard'));
 $PAGE->requires->css(new moodle_url('/local/dashboard/styles.css'));
 
-$topperformers = $DB->get_records_sql(
-    "SELECT qa.userid,
-            u.firstname,
-            u.lastname,
-            q.id AS quizid,
-            q.name AS quizname,
-            MAX((qa.sumgrades * 100.0) / NULLIF(q.sumgrades, 0)) AS bestscore,
-            MAX(CASE WHEN qmp.isautosubmit = 1 THEN 1 ELSE 0 END) AS failedflag
-       FROM {quiz_attempts} qa
-       JOIN {user} u ON u.id = qa.userid
-       JOIN {quiz} q ON q.id = qa.quiz
-       JOIN {company_course} cc ON cc.courseid = q.course
-       JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
-       LEFT JOIN {quizaccess_main_proctor} qmp ON qmp.attemptid = qa.id
-                                           AND qmp.deleted = 0
-                                           AND qmp.image_status = 'M'
-      WHERE cc.companyid = :companyid
-        AND qp.enableproctoring = 1
-        AND qa.preview = 0
-        AND qa.timefinish > 0
-        AND qa.timestart >= :fromtime
-        $quizsql
-   GROUP BY qa.userid, u.firstname, u.lastname, q.id, q.name
-   ORDER BY bestscore DESC",
-    $baseparams
-);
+$topperformers = local_dashboard_fetch_ranked_scores_rows($quizsql, $baseparams);
 
 echo $OUTPUT->header();
 echo html_writer::start_div('local-dashboard ld-detail-page');
@@ -103,10 +77,7 @@ echo html_writer::div(
 echo html_writer::end_div();
 
 echo html_writer::start_tag('form', ['method' => 'get', 'action' => new moodle_url('/local/dashboard/performers.php'), 'class' => 'ld-filters']);
-echo html_writer::start_div('ld-filter-item');
-echo html_writer::tag('label', get_string('selectcompany', 'local_dashboard'), ['for' => 'id_companyid']);
-echo html_writer::select($companyoptions, 'companyid', $companyid, false, ['id' => 'id_companyid']);
-echo html_writer::end_div();
+echo local_dashboard_filter_company_controls_html($r);
 echo html_writer::start_div('ld-filter-item');
 echo html_writer::tag('label', get_string('filtertimerange', 'local_dashboard'), ['for' => 'id_timerange']);
 echo html_writer::select($timerangeoptions, 'timerange', $timerange, false, ['id' => 'id_timerange']);
@@ -140,7 +111,7 @@ foreach ($topperformers as $row) {
     $clean = ((int) $row->failedflag !== 1);
     $statuspill = $clean
         ? html_writer::span(get_string('statusclean', 'local_dashboard'), 'ld-pill ld-pill-stat-clean')
-        : html_writer::span(get_string('statuspending', 'local_dashboard'), 'ld-pill ld-pill-stat-pending');
+        : html_writer::span(get_string('statusalerts', 'local_dashboard'), 'ld-pill ld-pill-stat-pending');
     $name = fullname((object) ['firstname' => $row->firstname, 'lastname' => $row->lastname]);
     $candidcell = html_writer::div($name, 'ld-candidate-name') .
         html_writer::div(

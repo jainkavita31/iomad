@@ -47,6 +47,41 @@
     color: #64748b;
 }
 
+.local-dashboard .ld-cache-sync-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem 1rem;
+    margin-bottom: 0.85rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: var(--ld-panel-rad);
+    border: 1px solid var(--ld-border);
+    background: color-mix(in srgb, var(--bs-body-bg, #fff) 92%, #e0e7ff);
+    font-size: 0.82rem;
+    color: #475569;
+}
+
+.local-dashboard .ld-cache-asof {
+    font-weight: 600;
+    color: #334155;
+}
+
+.local-dashboard .ld-cache-live {
+    font-weight: 600;
+    color: #b45309;
+}
+
+.local-dashboard .ld-cache-hint {
+    flex: 1 1 12rem;
+    min-width: 0;
+    line-height: 1.35;
+}
+
+.local-dashboard .ld-sync-now {
+    flex: 0 0 auto;
+    font-weight: 600;
+}
+
 .local-dashboard .ld-filters {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -72,10 +107,50 @@
     width: 100%;
 }
 
+.local-dashboard .ld-filter-orgname {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.local-dashboard .ld-org-name-display {
+    font-weight: 600;
+    font-size: 1.08rem;
+    color: #0f172a;
+    line-height: 1.25;
+    text-align: center;
+}
+
+.local-dashboard .ld-org-updated-display {
+    margin-top: 0.18rem;
+    font-size: 0.78rem;
+    color: #64748b;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.local-dashboard .ld-filters > .ld-filter-actions {
+    justify-self: start;
+    align-self: end;
+    width: auto;
+    max-width: 100%;
+    min-width: 0;
+}
+
 .local-dashboard .ld-filter-actions {
     display: flex;
     align-items: end;
-    gap: 0.5rem;
+    justify-content: flex-start;
+    gap: 0.35rem;
+    flex-wrap: nowrap;
+}
+
+.local-dashboard .ld-filter-actions .btn {
+    white-space: nowrap;
+    padding-left: 0.55rem;
+    padding-right: 0.55rem;
+    font-size: 0.86rem;
 }
 
 .local-dashboard .ld-kpi-grid {
@@ -280,6 +355,12 @@
 .local-dashboard .ld-pill-sev-medium { background: #fef9c3; color: #a16207; }
 .local-dashboard .ld-pill-sev-low { background: #f1f5f9; color: #475569; }
 
+.local-dashboard .ld-pill-stat-reviewed {
+    background: #e0f2fe;
+    color: #075985;
+    border: 1px solid #7dd3fc;
+}
+
 .local-dashboard .ld-pill-stat-pending { background: #fef9c3; color: #a16207; }
 .local-dashboard .ld-pill-stat-clean { background: #dcfce7; color: #15803d; }
 
@@ -332,6 +413,8 @@
 
 .local-dashboard .ld-assessment-overview {
     padding-bottom: 1rem;
+    /* Match vertical rhythm of .ld-kpi-grid / .ld-pipeline-grid / .ld-two-col (margin-bottom: 1rem). */
+    margin-bottom: 1rem;
 }
 
 .local-dashboard .ld-assessment-card {
@@ -698,7 +781,7 @@
     margin-top: 0.7rem;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.45rem;
+    gap: 0.8rem;
 }
 
 .local-dashboard .ld-score-stat {
@@ -743,6 +826,19 @@
     margin: 0 0 1rem;
 }
 
+.local-dashboard.ld-detail-page .ld-scores-export-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.local-dashboard.ld-detail-page .ld-scores-export-row .ld-detail-summary {
+    margin: 0;
+}
+
 .local-dashboard.ld-detail-page .ld-detail-meta {
     font-size: 0.88rem;
     color: #64748b;
@@ -760,6 +856,25 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 0.85rem;
+}
+
+.local-dashboard.ld-detail-page .ld-assessments-table-intro {
+    font-size: 0.88rem;
+    color: #64748b;
+    line-height: 1.45;
+    margin: 0 0 0.75rem;
+    max-width: 56rem;
+}
+
+.local-dashboard.ld-detail-page .ld-assessments-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: 0.5rem;
+    -webkit-overflow-scrolling: touch;
+}
+
+.local-dashboard.ld-detail-page .ld-assessments-detail-table {
+    min-width: 920px;
 }
 
 @media (max-width: 1200px) {
@@ -783,10 +898,27 @@
     .local-dashboard .ld-filters {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    .local-dashboard .ld-filters > .ld-filter-actions {
+        grid-column: 1 / -1;
+    }
+
+    .local-dashboard .ld-filter-actions {
+        flex-wrap: wrap;
+    }
 }
 
 @media (max-width: 700px) {
     .local-dashboard .ld-filters {
         grid-template-columns: 1fr;
+    }
+
+    .local-dashboard .ld-filter-actions {
+        gap: 0.4rem;
+    }
+
+    .local-dashboard .ld-filter-actions .btn {
+        flex: 1 1 auto;
+        text-align: center;
     }
 }

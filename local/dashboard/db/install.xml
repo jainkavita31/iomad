@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="local/dashboard/db" VERSION="20260202" COMMENT="XMLDB for local_dashboard"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="local_dashboard_proctor_review_log" COMMENT="Proctor review page opens (exam dashboard)">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="reviewer_userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="User who opened review"/>
+        <FIELD NAME="candidate_userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Student reviewed"/>
+        <FIELD NAME="quizid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="cmid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="reviewer_userid" TYPE="foreign" FIELDS="reviewer_userid" REFTABLE="user" REFFIELDS="id"/>
+        <KEY NAME="candidate_userid" TYPE="foreign" FIELDS="candidate_userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="candidate_quiz_ix" UNIQUE="false" FIELDS="candidate_userid, quizid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_dashboard_index_cache" COMMENT="Pre-computed exam dashboard index payload (cron / sync)">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="companyid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="timerange" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Days window e.g. 7,30,90,365"/>
+        <FIELD NAME="quizid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="0 = all assessments"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="payload" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Base64 serialized payload"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="company_time_quiz_uix" UNIQUE="true" FIELDS="companyid, timerange, quizid"/>
+      </INDEXES>
+    </TABLE>
+  </TABLES>
+</XMLDB>

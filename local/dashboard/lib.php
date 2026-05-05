@@ -143,14 +143,18 @@ function local_dashboard_proctor_reviewattempts_url(int $userid, int $cmid, int 
 }
 
 /**
- * “Review →” link to ProctorLink reviewattempts.php, or plain label if CM missing / no report capability.
+ * “Review →” link to ProctorLink reviewattempts.php, or plain label if CM missing / no access.
+ *
+ * Link is shown if the user can open the ProctorLink overall report on the quiz, **or** if they can
+ * view the exam dashboard for `$dashboardcompanyid` and that company is linked to the quiz course.
  *
  * @param int $userid User id (candidate).
  * @param int $quizid Quiz instance id.
  * @param array $linkattrs Optional extra anchor attributes.
+ * @param int|null $dashboardcompanyid Company id from dashboard filters (non-admin); optional.
  * @return string HTML
  */
-function local_dashboard_proctor_reviewattempts_link_html(int $userid, int $quizid, array $linkattrs = []): string {
+function local_dashboard_proctor_reviewattempts_link_html(int $userid, int $quizid, array $linkattrs = [], ?int $dashboardcompanyid = null): string {
     global $DB;
 
     $label = get_string('reviewarrow', 'local_dashboard');
@@ -166,10 +170,26 @@ function local_dashboard_proctor_reviewattempts_link_html(int $userid, int $quiz
         return $label;
     }
     $modctx = context_module::instance($cm->id);
-    if (!has_capability('quizaccess/quizproctoring:quizproctoringoverallreport', $modctx)) {
+    $allowlink = has_capability('quizaccess/quizproctoring:quizproctoringoverallreport', $modctx);
+    if (!$allowlink && $dashboardcompanyid !== null && $dashboardcompanyid > 0
+            && $DB->record_exists('company_course', [
+                'companyid' => $dashboardcompanyid,
+                'courseid' => (int) $quiz->course,
+            ])) {
+        try {
+            $companyctx = \core\context\company::instance($dashboardcompanyid);
+            $allowlink = has_capability('local/dashboard:view', $companyctx);
+        } catch (\Exception $e) {
+            $allowlink = false;
+        }
+    }
+    if (!$allowlink) {
         return $label;
     }
-    $url = local_dashboard_proctor_reviewattempts_url($userid, (int) $cm->id, $quizid);
+    $url = new moodle_url('/local/dashboard/proctor_review_entry.php', [
+        'userid' => $userid,
+        'quizid' => $quizid,
+    ]);
     $attrs = array_merge(['class' => 'ld-review-link'], $linkattrs);
     return html_writer::link($url, $label, $attrs);
 }
@@ -238,6 +258,21 @@ function local_dashboard_bootstrap_report(): ?stdClass {
         );
     }
 
+    // Only organisations where this user may view the exam dashboard.
+    $companyoptionswithview = [];
+    foreach ($companyoptions as $cid => $cname) {
+        $cid = (int) $cid;
+        try {
+            $cctx = \core\context\company::instance($cid);
+        } catch (\Exception $e) {
+            continue;
+        }
+        if (has_capability('local/dashboard:view', $cctx)) {
+            $companyoptionswithview[$cid] = $cname;
+        }
+    }
+    $companyoptions = $companyoptionswithview;
+
     $companyid = 0;
     if ($requestedcompanyid > 0 && array_key_exists($requestedcompanyid, $companyoptions)) {
         $companyid = $requestedcompanyid;
@@ -254,7 +289,10 @@ function local_dashboard_bootstrap_report(): ?stdClass {
         $PAGE->set_title(get_string('heading', 'local_dashboard'));
         $PAGE->set_heading(get_string('heading', 'local_dashboard'));
         echo $OUTPUT->header();
-        echo $OUTPUT->notification(get_string('nocompanyavailable', 'local_dashboard'), 'warning');
+        $msg = empty($companyoptions)
+            ? get_string('nodashboardaccess', 'local_dashboard')
+            : get_string('nocompanyavailable', 'local_dashboard');
+        echo $OUTPUT->notification($msg, 'warning');
         echo $OUTPUT->footer();
         return null;
     }
@@ -329,6 +367,7 @@ function local_dashboard_bootstrap_report(): ?stdClass {
     $out->companycontext = $companycontext;
     $out->companyoptions = $companyoptions;
     $out->companyname = $companyname;
+    $out->show_company_selector = $canviewallcompanies;
     $out->timerange = $timerange;
     $out->quizid = $quizid;
     $out->timerangeoptions = $timerangeoptions;
@@ -354,6 +393,143 @@ function local_dashboard_filter_url_params(stdClass $r): array {
 }
 
 /**
+ * First filter cell: site admins get a company dropdown; everyone else sees the organisation name only (no "Company" label).
+ *
+ * @param stdClass $r Bootstrap object from local_dashboard_bootstrap_report() (expects show_company_selector, companyoptions, companyid, companyname).
+ * @return string HTML fragment.
+ */
+function local_dashboard_filter_company_controls_html(stdClass $r): string {
+    if (!empty($r->show_company_selector)) {
+        $label = get_string('selectcompany', 'local_dashboard');
+        $o = html_writer::start_div('ld-filter-item');
+        $o .= html_writer::tag('label', $label, ['for' => 'id_companyid']);
+        $o .= html_writer::select($r->companyoptions, 'companyid', $r->companyid, false, ['id' => 'id_companyid']);
+        $o .= html_writer::end_div();
+        return $o;
+    }
+    $o = html_writer::start_div('ld-filter-item ld-filter-orgname');
+    $o .= html_writer::div($r->companyname, 'ld-org-name-display');
+    $o .= html_writer::div(get_string('lastupdated', 'local_dashboard', userdate(time())), 'ld-org-updated-display');
+    $o .= html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'companyid', 'value' => (int) $r->companyid]);
+    $o .= html_writer::end_div();
+    return $o;
+}
+
+/**
+ * Whether the proctor review log table is present (after install/upgrade).
+ *
+ * @return bool
+ */
+function local_dashboard_review_log_table_ready(): bool {
+    global $DB;
+    static $ready = null;
+    if ($ready !== null) {
+        return $ready;
+    }
+    return $ready = $DB->get_manager()->table_exists('local_dashboard_proctor_review_log');
+}
+
+/**
+ * SQL fragments to attach latest review time per candidate+quiz (for queue status).
+ *
+ * @return array{join: string, select: string}
+ */
+function local_dashboard_review_log_sql_parts(): array {
+    if (!local_dashboard_review_log_table_ready()) {
+        return [
+            'join' => '',
+            'select' => ', NULL AS reviewedat',
+        ];
+    }
+    return [
+        'join' => " LEFT JOIN (
+                        SELECT candidate_userid, quizid, MAX(timecreated) AS reviewedat
+                          FROM {local_dashboard_proctor_review_log}
+                      GROUP BY candidate_userid, quizid
+                   ) ld_rev ON ld_rev.candidate_userid = u.id AND ld_rev.quizid = q.id ",
+        'select' => ', ld_rev.reviewedat',
+    ];
+}
+
+/**
+ * JOIN + WHERE fragment to limit queries to candidate+quiz pairs not yet in the review log.
+ * Matches queue "Reviewed" semantics (log keyed by candidate_userid + quizid).
+ *
+ * Queries must alias attempts as qa and quiz as q, and use qa.userid as the candidate id.
+ *
+ * @return array{join: string, where: string}
+ */
+function local_dashboard_review_log_pending_only_sql_parts(): array {
+    if (!local_dashboard_review_log_table_ready()) {
+        return ['join' => '', 'where' => ''];
+    }
+    return [
+        'join' => " LEFT JOIN (
+                        SELECT candidate_userid AS ruid, quizid AS rqid, MAX(timecreated) AS reviewedat
+                          FROM {local_dashboard_proctor_review_log}
+                      GROUP BY candidate_userid, quizid
+                   ) ld_pend ON ld_pend.ruid = qa.userid AND ld_pend.rqid = q.id ",
+        'where' => ' AND ld_pend.reviewedat IS NULL ',
+    ];
+}
+
+/**
+ * Log that the current user opened the ProctorLink review page for a candidate+quiz.
+ *
+ * @param int $candidateuserid Student user id.
+ * @param int $cmid Quiz course-module id.
+ * @param int $quizid Quiz instance id.
+ * @return void
+ */
+function local_dashboard_note_proctor_review_access(int $candidateuserid, int $cmid, int $quizid): void {
+    global $DB, $USER;
+
+    if (!local_dashboard_review_log_table_ready() || isguestuser() || empty($USER->id)) {
+        return;
+    }
+    $record = (object) [
+        'reviewer_userid' => (int) $USER->id,
+        'candidate_userid' => $candidateuserid,
+        'quizid' => $quizid,
+        'cmid' => $cmid,
+        'timecreated' => time(),
+    ];
+    $DB->insert_record('local_dashboard_proctor_review_log', $record);
+}
+
+/**
+ * Severity + status language keys for a priority-queue row (status uses review log when applicable).
+ *
+ * Row must include: alertcount, isautosubmit; optional reviewedat (unix int or null).
+ *
+ * @param stdClass $row
+ * @return array{0: string, 1: string} [severitykey, statuskey] full keys e.g. severityhigh, statusreviewed
+ */
+function local_dashboard_queue_row_status_keys(stdClass $row): array {
+    $alerts = (int) $row->alertcount;
+    $isautosubmit = (int) $row->isautosubmit;
+    $reviewed = !empty($row->reviewedat);
+
+    $severitykey = 'severitylow';
+    if ($isautosubmit === 1 || $alerts >= 6) {
+        $severitykey = 'severitycritical';
+    } else if ($alerts >= 3) {
+        $severitykey = 'severityhigh';
+    } else if ($alerts >= 1) {
+        $severitykey = 'severitymedium';
+    }
+
+    $needsreview = ($isautosubmit === 1 || $alerts >= 1);
+    if (!$needsreview) {
+        return [$severitykey, 'statusclean'];
+    }
+    if ($reviewed) {
+        return [$severitykey, 'statusreviewed'];
+    }
+    return [$severitykey, 'statuspending'];
+}
+
+/**
  * URL for a recommended-action detail page.
  *
  * @param stdClass $r Bootstrap object from local_dashboard_bootstrap_report().
@@ -369,6 +545,62 @@ function local_dashboard_action_view_url(stdClass $r, string $view): moodle_url 
         local_dashboard_filter_url_params($r),
         ['view' => $view]
     ));
+}
+
+/**
+ * Ranked best score per user per quiz (performers and action scores view).
+ *
+ * @param string $quizsql SQL fragment with optional quiz filter.
+ * @param array $baseparams Params including companyid, fromtime, optional quizid.
+ * @param int $limitfrom First row offset (used when $limitnum > 0).
+ * @param int $limitnum Max rows; 0 = no limit.
+ * @return stdClass[] List rows (0-based keys): userid, firstname, lastname, quizid, quizname, coursename, bestscore, failedflag.
+ */
+function local_dashboard_fetch_ranked_scores_rows(
+    string $quizsql,
+    array $baseparams,
+    int $limitfrom = 0,
+    int $limitnum = 0
+): array {
+    global $DB;
+
+    $sql =
+        "SELECT qa.userid,
+                u.firstname,
+                u.lastname,
+                q.id AS quizid,
+                q.name AS quizname,
+                c.fullname AS coursename,
+                MAX((qa.sumgrades * 100.0) / NULLIF(q.sumgrades, 0)) AS bestscore,
+                MAX(CASE WHEN qmp.isautosubmit = 1 THEN 1 ELSE 0 END) AS failedflag
+           FROM {quiz_attempts} qa
+           JOIN {user} u ON u.id = qa.userid
+           JOIN {quiz} q ON q.id = qa.quiz
+           JOIN {course} c ON c.id = q.course
+           JOIN {company_course} cc ON cc.courseid = q.course
+           JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
+           LEFT JOIN {quizaccess_main_proctor} qmp ON qmp.attemptid = qa.id
+                                               AND qmp.deleted = 0
+                                               AND qmp.image_status = 'M'
+          WHERE cc.companyid = :companyid
+            AND qp.enableproctoring = 1
+            AND qa.preview = 0
+            AND qa.timefinish > 0
+            AND qa.timestart >= :fromtime
+            $quizsql
+       GROUP BY qa.userid, u.firstname, u.lastname, q.id, q.name, c.fullname
+       ORDER BY bestscore DESC";
+
+    // Do not use get_records_sql(): its first column becomes the array key; userid repeats across
+    // quizzes when quizid=0, so rows overwrite and most rankings disappear.
+    $rs = $DB->get_recordset_sql($sql, $baseparams, $limitfrom, $limitnum);
+    $rows = [];
+    foreach ($rs as $row) {
+        $rows[] = $row;
+    }
+    $rs->close();
+
+    return $rows;
 }
 
 /**
@@ -541,6 +773,59 @@ function local_dashboard_fetch_assessment_stats(
 }
 
 /**
+ * First company id where the current user has {@see local_dashboard:view} (prefers session company when valid).
+ *
+ * @return int 0 if none.
+ */
+function local_dashboard_first_company_with_dashboard_view(): int {
+    global $DB, $SESSION, $USER;
+
+    $systemcontext = context_system::instance();
+    $canall = has_capability('moodle/site:config', $systemcontext);
+    if ($canall) {
+        $companyoptions = $DB->get_records_sql_menu(
+            "SELECT id, name
+               FROM {company}
+           ORDER BY name",
+            []
+        );
+    } else {
+        $companyoptions = $DB->get_records_sql_menu(
+            "SELECT DISTINCT c.id, c.name
+               FROM {company} c
+               JOIN {company_users} cu ON cu.companyid = c.id
+              WHERE cu.userid = :userid
+                AND cu.suspended = 0
+           ORDER BY c.name",
+            ['userid' => $USER->id]
+        ) ?: [];
+    }
+
+    $candidates = [];
+    foreach ($companyoptions as $cid => $ignored) {
+        $cid = (int) $cid;
+        try {
+            $ctx = \core\context\company::instance($cid);
+        } catch (\Exception $e) {
+            continue;
+        }
+        if (has_capability('local/dashboard:view', $ctx)) {
+            $candidates[] = $cid;
+        }
+    }
+    if ($candidates === []) {
+        return 0;
+    }
+    if (!empty($SESSION->currenteditingcompany)) {
+        $sess = (int) $SESSION->currenteditingcompany;
+        if (in_array($sess, $candidates, true)) {
+            return $sess;
+        }
+    }
+    return $candidates[0];
+}
+
+/**
  * Extend global navigation with Dashboard link when user can access it.
  *
  * @param global_navigation $nav
@@ -553,18 +838,8 @@ function local_dashboard_extend_navigation(global_navigation $nav): void {
         return;
     }
 
-    $companyid = 0;
-    if (!empty($SESSION->currenteditingcompany)) {
-        $companyid = (int) $SESSION->currenteditingcompany;
-    } else {
-        $companyid = (int) $DB->get_field('company_users', 'companyid', ['userid' => $USER->id], IGNORE_MULTIPLE);
-    }
+    $companyid = local_dashboard_first_company_with_dashboard_view();
     if (!$companyid) {
-        return;
-    }
-
-    $companycontext = \core\context\company::instance($companyid);
-    if (!has_capability('local/dashboard:view', $companycontext)) {
         return;
     }
 
@@ -601,18 +876,8 @@ function local_dashboard_extend_settings_navigation(settings_navigation $setting
         return;
     }
 
-    $companyid = 0;
-    if (!empty($SESSION->currenteditingcompany)) {
-        $companyid = (int) $SESSION->currenteditingcompany;
-    } else {
-        $companyid = (int) $DB->get_field('company_users', 'companyid', ['userid' => $USER->id], IGNORE_MULTIPLE);
-    }
+    $companyid = local_dashboard_first_company_with_dashboard_view();
     if (!$companyid) {
-        return;
-    }
-
-    $companycontext = \core\context\company::instance($companyid);
-    if (!has_capability('local/dashboard:view', $companycontext)) {
         return;
     }
 

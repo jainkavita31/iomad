@@ -34,7 +34,6 @@ if ($r === null) {
 
 $companyid = $r->companyid;
 $companycontext = $r->companycontext;
-$companyoptions = $r->companyoptions;
 $companyname = $r->companyname;
 $timerange = $r->timerange;
 $quizid = $r->quizid;
@@ -87,10 +86,7 @@ echo html_writer::div(
 echo html_writer::end_div();
 
 echo html_writer::start_tag('form', ['method' => 'get', 'action' => new moodle_url('/local/dashboard/assessments.php'), 'class' => 'ld-filters']);
-echo html_writer::start_div('ld-filter-item');
-echo html_writer::tag('label', get_string('selectcompany', 'local_dashboard'), ['for' => 'id_companyid']);
-echo html_writer::select($companyoptions, 'companyid', $companyid, false, ['id' => 'id_companyid']);
-echo html_writer::end_div();
+echo local_dashboard_filter_company_controls_html($r);
 echo html_writer::start_div('ld-filter-item');
 echo html_writer::tag('label', get_string('filtertimerange', 'local_dashboard'), ['for' => 'id_timerange']);
 echo html_writer::select($timerangeoptions, 'timerange', $timerange, false, ['id' => 'id_timerange']);
@@ -105,69 +101,65 @@ echo html_writer::div(
     get_string('assessmentrowcount', 'local_dashboard', count($assessmentstats)),
     'ld-detail-meta ld-detail-summary'
 );
+echo html_writer::div(get_string('assessmentsdetailtableintro', 'local_dashboard'), 'ld-assessments-table-intro');
 
-echo html_writer::start_div('ld-assessment-overview ld-assessment-detail-grid');
-foreach ($assessmentstats as $row) {
-    $cardextra = !empty($row->unusual) ? ' ld-assessment-card--unusual' : '';
-    echo html_writer::start_div('ld-assessment-card' . $cardextra);
-    if (!empty($row->unusual)) {
-        echo html_writer::span(get_string('unusualactivity', 'local_dashboard'), 'ld-assessment-badge');
+usort($assessmentstats, static function ($a, $b) {
+    $c = ((int) $b->alerts) <=> ((int) $a->alerts);
+    if ($c !== 0) {
+        return $c;
     }
-    echo html_writer::div(
-        local_dashboard_quizview_link_html((int) $row->quizid, (string) $row->quiznameraw),
-        'ld-assessment-title'
-    );
-    echo html_writer::div($row->course, 'ld-assessment-sub');
-    echo html_writer::start_div('ld-assessment-stats');
-    echo html_writer::div(
-        number_format($row->users) . '<span>' . get_string('statcandidates', 'local_dashboard') . '</span>',
-        'ld-assessment-stat'
-    );
-    echo html_writer::div(
-        format_float($row->completedpct, 1) . '%<span>' . get_string('statcompleted', 'local_dashboard') . '</span>',
-        'ld-assessment-stat'
-    );
-    echo html_writer::div(
-        number_format($row->flaggedunion) . '<span>' . get_string('statflagged', 'local_dashboard') . '</span>',
-        'ld-assessment-stat ld-assessment-stat-flagged'
-    );
-    echo html_writer::div(
-        number_format($row->alerts) . '<span>' . get_string('tablealerts', 'local_dashboard') . '</span>',
-        'ld-assessment-stat'
-    );
-    echo html_writer::div(
-        number_format($row->failed) . '<span>' . get_string('tablefailed', 'local_dashboard') . '</span>',
-        'ld-assessment-stat'
-    );
-    echo html_writer::div(
-        format_float($row->score, 1) . '%<span>' . get_string('tablescore', 'local_dashboard') . '</span>',
-        'ld-assessment-stat'
-    );
-    echo html_writer::end_div();
-    echo html_writer::start_div('ld-assessment-progress');
-    echo html_writer::div('', 'ld-assessment-progress-clean', ['style' => 'width:' . format_float($row->clearedpct, 2) . '%']);
-    echo html_writer::div('', 'ld-assessment-progress-warn', ['style' => 'width:' . format_float($row->orangepct, 2) . '%']);
-    echo html_writer::div('', 'ld-assessment-progress-risk', ['style' => 'width:' . format_float($row->highriskpct, 2) . '%']);
-    echo html_writer::end_div();
-    echo html_writer::start_div('ld-assessment-footer');
-    echo html_writer::div(
-        get_string('pctcleared', 'local_dashboard', format_float($row->clearedpct, 1)),
-        'ld-assessment-foot-left'
-    );
-    echo html_writer::div(
-        $row->orangepct > 0.5 ? format_float($row->orangepct, 1) . '%' : '',
-        'ld-assessment-foot-mid'
-    );
-    echo html_writer::div(
-        get_string('pcthighrisk', 'local_dashboard', format_float($row->highriskpct, 1)),
-        'ld-assessment-foot-right'
-    );
-    echo html_writer::end_div();
-    echo html_writer::end_div();
+    return ((int) $b->flaggedunion) <=> ((int) $a->flaggedunion);
+});
+
+$table = new html_table();
+$table->head = [
+    get_string('tableassessment', 'local_dashboard'),
+    get_string('tablecourse', 'local_dashboard'),
+    get_string('statcandidates', 'local_dashboard'),
+    get_string('tableattempts', 'local_dashboard'),
+    get_string('tablecompletedpct', 'local_dashboard'),
+    get_string('statflagged', 'local_dashboard'),
+    get_string('tablealerts', 'local_dashboard'),
+    get_string('tablefailed', 'local_dashboard'),
+    get_string('tablescore', 'local_dashboard'),
+    get_string('tablepctcleared', 'local_dashboard'),
+    get_string('tablepctwarning', 'local_dashboard'),
+    get_string('tablepcthighriskcol', 'local_dashboard'),
+];
+$table->attributes['class'] = 'generaltable ld-table ld-detail-table ld-assessments-detail-table';
+$table->data = [];
+foreach ($assessmentstats as $row) {
+    $quizcell = local_dashboard_quizview_link_html((int) $row->quizid, (string) $row->quiznameraw);
+    if (!empty($row->unusual)) {
+        $quizcell .= ' ' . html_writer::span(
+            get_string('unusualactivity', 'local_dashboard'),
+            'ld-pill ld-pill-stat-pending'
+        );
+    }
+    $table->data[] = [
+        $quizcell,
+        $row->course,
+        number_format($row->users),
+        number_format($row->attempts),
+        format_float($row->completedpct, 1) . '%',
+        number_format($row->flaggedunion),
+        number_format($row->alerts),
+        number_format($row->failed),
+        format_float($row->score, 1) . '%',
+        format_float($row->clearedpct, 1) . '%',
+        format_float($row->orangepct, 1) . '%',
+        format_float($row->highriskpct, 1) . '%',
+    ];
 }
-if (empty($assessmentstats)) {
-    echo html_writer::div(get_string('nofiltereddata', 'local_dashboard'));
+if (empty($table->data)) {
+    $table->data[] = array_merge(
+        [get_string('nofiltereddata', 'local_dashboard')],
+        array_fill(0, count($table->head) - 1, '')
+    );
 }
+
+echo html_writer::start_div('ld-assessments-table-wrap');
+echo html_writer::table($table);
 echo html_writer::end_div();
 
 echo html_writer::end_div();

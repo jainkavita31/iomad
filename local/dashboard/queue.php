@@ -53,6 +53,7 @@ $PAGE->set_heading(get_string('queuepagetitle', 'local_dashboard'));
 $PAGE->requires->css(new moodle_url('/local/dashboard/styles.css'));
 
 $queueparams = $baseparams;
+$ldrev = local_dashboard_review_log_sql_parts();
 $priorityqueue = $DB->get_records_sql(
     "SELECT qmp.attemptid,
             u.id AS userid,
@@ -62,6 +63,7 @@ $priorityqueue = $DB->get_records_sql(
             q.name AS quizname,
             SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) AS alertcount,
             MAX(qmp.isautosubmit) AS isautosubmit
+            {$ldrev['select']}
        FROM {quizaccess_main_proctor} qmp
        JOIN {quiz_attempts} qa ON qa.id = qmp.attemptid
        JOIN {user} u ON u.id = qa.userid
@@ -70,6 +72,7 @@ $priorityqueue = $DB->get_records_sql(
        JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
        LEFT JOIN {quizaccess_proctor_data} pd ON pd.attemptid = qmp.attemptid
                                           AND pd.quizid = q.id
+            {$ldrev['join']}
       WHERE cc.companyid = :companyid
         AND qp.enableproctoring = 1
         AND qa.preview = 0
@@ -106,10 +109,7 @@ echo html_writer::div(
 echo html_writer::end_div();
 
 echo html_writer::start_tag('form', ['method' => 'get', 'action' => new moodle_url('/local/dashboard/queue.php'), 'class' => 'ld-filters']);
-echo html_writer::start_div('ld-filter-item');
-echo html_writer::tag('label', get_string('selectcompany', 'local_dashboard'), ['for' => 'id_companyid']);
-echo html_writer::select($companyoptions, 'companyid', $companyid, false, ['id' => 'id_companyid']);
-echo html_writer::end_div();
+echo local_dashboard_filter_company_controls_html($r);
 echo html_writer::start_div('ld-filter-item');
 echo html_writer::tag('label', get_string('filtertimerange', 'local_dashboard'), ['for' => 'id_timerange']);
 echo html_writer::select($timerangeoptions, 'timerange', $timerange, false, ['id' => 'id_timerange']);
@@ -143,20 +143,9 @@ $queuetable->head = [
 $queuetable->attributes['class'] = 'generaltable ld-table ld-detail-table';
 $queuetable->data = [];
 foreach ($priorityqueue as $row) {
+    [$severitykey, $statuskey] = local_dashboard_queue_row_status_keys($row);
     $alerts = (int) $row->alertcount;
-    $severitykey = 'severitylow';
-    $statuskey = 'statusclean';
-    if ((int) $row->isautosubmit === 1 || $alerts >= 6) {
-        $severitykey = 'severitycritical';
-        $statuskey = 'statuspending';
-    } else if ($alerts >= 3) {
-        $severitykey = 'severityhigh';
-        $statuskey = 'statuspending';
-    } else if ($alerts >= 1) {
-        $severitykey = 'severitymedium';
-        $statuskey = 'statuspending';
-    }
-    $reviewlink = local_dashboard_proctor_reviewattempts_link_html((int) $row->userid, (int) $row->quizid);
+    $reviewlink = local_dashboard_proctor_reviewattempts_link_html((int) $row->userid, (int) $row->quizid, [], (int) $companyid);
     $sevpill = 'ld-pill ld-pill-sev-' . preg_replace('/^severity/', '', $severitykey);
     $statpill = 'ld-pill ld-pill-stat-' . preg_replace('/^status/', '', $statuskey);
     $queuetable->data[] = [
