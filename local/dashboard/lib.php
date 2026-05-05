@@ -403,7 +403,10 @@ function local_dashboard_filter_company_controls_html(stdClass $r): string {
         $label = get_string('selectcompany', 'local_dashboard');
         $o = html_writer::start_div('ld-filter-item');
         $o .= html_writer::tag('label', $label, ['for' => 'id_companyid']);
-        $o .= html_writer::select($r->companyoptions, 'companyid', $r->companyid, false, ['id' => 'id_companyid']);
+        $o .= html_writer::select($r->companyoptions, 'companyid', $r->companyid, false, [
+            'id' => 'id_companyid',
+            'aria-label' => $label,
+        ]);
         $o .= html_writer::end_div();
         return $o;
     }
@@ -554,7 +557,7 @@ function local_dashboard_action_view_url(stdClass $r, string $view): moodle_url 
  * @param array $baseparams Params including companyid, fromtime, optional quizid.
  * @param int $limitfrom First row offset (used when $limitnum > 0).
  * @param int $limitnum Max rows; 0 = no limit.
- * @return stdClass[] List rows (0-based keys): userid, firstname, lastname, quizid, quizname, coursename, bestscore, failedflag.
+ * @return stdClass[] List rows (0-based keys): userid, firstname, lastname, quizid, quizname, coursename, bestscore, failedflag, alertcount.
  */
 function local_dashboard_fetch_ranked_scores_rows(
     string $quizsql,
@@ -572,7 +575,8 @@ function local_dashboard_fetch_ranked_scores_rows(
                 q.name AS quizname,
                 c.fullname AS coursename,
                 MAX((qa.sumgrades * 100.0) / NULLIF(q.sumgrades, 0)) AS bestscore,
-                MAX(CASE WHEN qmp.isautosubmit = 1 THEN 1 ELSE 0 END) AS failedflag
+                MAX(CASE WHEN qmp.isautosubmit = 1 THEN 1 ELSE 0 END) AS failedflag,
+                COUNT(DISTINCT CASE WHEN pd.deleted = 0 AND pd.status != '' THEN pd.id ELSE NULL END) AS alertcount
            FROM {quiz_attempts} qa
            JOIN {user} u ON u.id = qa.userid
            JOIN {quiz} q ON q.id = qa.quiz
@@ -582,6 +586,8 @@ function local_dashboard_fetch_ranked_scores_rows(
            LEFT JOIN {quizaccess_main_proctor} qmp ON qmp.attemptid = qa.id
                                                AND qmp.deleted = 0
                                                AND qmp.image_status = 'M'
+           LEFT JOIN {quizaccess_proctor_data} pd ON pd.attemptid = qa.id
+                                                 AND pd.quizid = q.id
           WHERE cc.companyid = :companyid
             AND qp.enableproctoring = 1
             AND qa.preview = 0

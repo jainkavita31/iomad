@@ -9,8 +9,8 @@
 }
 
 .local-dashboard {
-    background: linear-gradient(165deg, var(--ld-page-tint) 0%, color-mix(in srgb, var(--bs-body-bg, #fff) 92%, #e2e8f0) 55%, var(--bs-body-bg, #fff) 100%);
-    padding: 1rem 1rem 1.35rem;
+    background: color-mix(in srgb, var(--bs-body-bg, #fff) 96%, #e9f0fb);
+    padding: 0.8rem 0.9rem 1.2rem;
     border-radius: 16px;
     border: 1px solid color-mix(in srgb, var(--ld-border) 70%, transparent);
     margin-bottom: 0.5rem;
@@ -47,17 +47,22 @@
     color: #64748b;
 }
 
+.local-dashboard .ld-new-assessment-btn {
+    white-space: nowrap;
+    font-weight: 600;
+}
+
 .local-dashboard .ld-cache-sync-row {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.65rem 1rem;
-    margin-bottom: 0.85rem;
-    padding: 0.55rem 0.75rem;
+    margin-bottom: 0.65rem;
+    padding: 0.35rem 0.55rem;
     border-radius: var(--ld-panel-rad);
-    border: 1px solid var(--ld-border);
-    background: color-mix(in srgb, var(--bs-body-bg, #fff) 92%, #e0e7ff);
-    font-size: 0.82rem;
+    border: 1px solid color-mix(in srgb, var(--ld-border) 65%, transparent);
+    background: color-mix(in srgb, var(--bs-body-bg, #fff) 97%, #eef4ff);
+    font-size: 0.78rem;
     color: #475569;
 }
 
@@ -85,10 +90,10 @@
 .local-dashboard .ld-filters {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.8rem;
+    gap: 0.55rem 0.7rem;
     border: 1px solid var(--ld-border);
     border-radius: var(--ld-panel-rad);
-    padding: 0.95rem 1rem;
+    padding: 0.62rem 0.75rem;
     margin: 0 0 1.1rem;
     background: var(--bs-body-bg, #fff);
     box-shadow: var(--ld-shadow);
@@ -96,15 +101,26 @@
 
 .local-dashboard .ld-filter-item label {
     display: block;
-    margin-bottom: 0.3rem;
+    margin: 0 0 0.08rem;
+    padding: 0;
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.03em;
     font-weight: 600;
+    line-height: 1.05;
 }
 
 .local-dashboard .ld-filter-item select {
     width: 100%;
+    margin: 0 !important;
+    min-height: 2.1rem;
+    border-radius: 8px;
+}
+
+.local-dashboard .ld-filter-item {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
 }
 
 .local-dashboard .ld-filter-orgname {
@@ -148,9 +164,50 @@
 
 .local-dashboard .ld-filter-actions .btn {
     white-space: nowrap;
-    padding-left: 0.55rem;
-    padding-right: 0.55rem;
+    min-height: 2.1rem;
+    padding: 0.35rem 0.62rem;
+    font-size: 0.82rem;
+    border-radius: 8px;
+}
+
+/* Main dashboard: screenshot-style compact top filter row. */
+.local-dashboard.ld-main-page .ld-filter-item label {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+
+.local-dashboard.ld-main-page .ld-filters {
+    grid-template-columns: 1fr 1fr 1fr auto;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.local-dashboard.ld-main-page .ld-filter-item select {
+    min-height: 2rem;
     font-size: 0.86rem;
+}
+
+.local-dashboard.ld-main-page .ld-filters > .ld-filter-actions {
+    justify-self: end;
+    align-self: center;
+}
+
+.local-dashboard.ld-main-page .ld-filter-actions {
+    justify-content: flex-end;
+    gap: 0.3rem;
+}
+
+.local-dashboard.ld-main-page .ld-filter-actions .btn {
+    min-height: 2rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    padding: 0.33rem 0.64rem;
 }
 
 .local-dashboard .ld-kpi-grid {

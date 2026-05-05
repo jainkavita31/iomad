@@ -108,10 +108,10 @@ $performertable->attributes['class'] = 'generaltable ld-table ld-detail-table';
 $performertable->data = [];
 $rank = 1;
 foreach ($topperformers as $row) {
-    $clean = ((int) $row->failedflag !== 1);
-    $statuspill = $clean
-        ? html_writer::span(get_string('statusclean', 'local_dashboard'), 'ld-pill ld-pill-stat-clean')
-        : html_writer::span(get_string('statusalerts', 'local_dashboard'), 'ld-pill ld-pill-stat-pending');
+    $alertcount = (int) $row->alertcount;
+    $statuspill = $alertcount > 0
+        ? html_writer::span(get_string('statusalertcount', 'local_dashboard', $alertcount), 'ld-pill ld-pill-stat-pending')
+        : html_writer::span(get_string('statusclean', 'local_dashboard'), 'ld-pill ld-pill-stat-clean');
     $name = fullname((object) ['firstname' => $row->firstname, 'lastname' => $row->lastname]);
     $candidcell = html_writer::div($name, 'ld-candidate-name') .
         html_writer::div(

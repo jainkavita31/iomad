@@ -50,6 +50,7 @@ $indexfromcache = false;
 $tableexists = $DB->get_manager()->table_exists('local_dashboard_index_cache');
 $assessmentscompleted = 0;
 $assessmentsinprogress = 0;
+$newassessmenturl = null;
 
 if ($quizid === 0 && $tableexists) {
     $cachedpack = index_snapshot::load($companyid, $timerange, 0);
@@ -72,6 +73,46 @@ if (!$indexfromcache) {
     }
 }
 
+// Backward compatibility: old cached snapshots may not include alertcount in top performers rows.
+$needsperformeralertrefresh = false;
+if (!empty($topperformers) && is_array($topperformers)) {
+    foreach ($topperformers as $prow) {
+        if (!is_object($prow) || !property_exists($prow, 'alertcount')) {
+            $needsperformeralertrefresh = true;
+            break;
+        }
+    }
+}
+if ($needsperformeralertrefresh) {
+    $topperformers = local_dashboard_fetch_ranked_scores_rows($quizsql, $baseparams, 0, 10);
+    if ($quizid === 0 && $tableexists && isset($payload) && is_object($payload)) {
+        $payload->topperformers = $topperformers;
+        index_snapshot::store($companyid, $timerange, 0, $payload);
+    }
+}
+
+// Top-right CTA: first company course where current user can add quiz activities.
+$companycourseids = $DB->get_fieldset_sql(
+    "SELECT cc.courseid
+       FROM {company_course} cc
+      WHERE cc.companyid = :companyid
+   ORDER BY cc.courseid",
+    ['companyid' => $companyid]
+);
+foreach ($companycourseids as $courseid) {
+    $coursectx = context_course::instance((int) $courseid, IGNORE_MISSING);
+    if ($coursectx && has_capability('moodle/course:manageactivities', $coursectx)) {
+        $newassessmenturl = new moodle_url('/course/modedit.php', [
+            'add' => 'quiz',
+            'type' => '',
+            'course' => (int) $courseid,
+            'section' => 0,
+            'sr' => 0,
+        ]);
+        break;
+    }
+}
+
 $pageurl = new moodle_url('/local/dashboard/index.php', [
     'timerange' => $timerange,
     'quizid' => $quizid,
@@ -85,7 +126,7 @@ $PAGE->set_heading('');
 $PAGE->requires->css(new moodle_url('/local/dashboard/styles.css'));
 
 echo $OUTPUT->header();
-echo html_writer::start_div('local-dashboard');
+echo html_writer::start_div('local-dashboard ld-main-page');
 
 if (optional_param('dashboardsynced', 0, PARAM_INT)) {
     echo $OUTPUT->notification(get_string('indexsyncok', 'local_dashboard'), 'success');
@@ -101,15 +142,28 @@ echo html_writer::start_tag('form', ['method' => 'get', 'action' => new moodle_u
 echo local_dashboard_filter_company_controls_html($r);
 echo html_writer::start_div('ld-filter-item');
 echo html_writer::tag('label', get_string('filtertimerange', 'local_dashboard'), ['for' => 'id_timerange']);
-echo html_writer::select($timerangeoptions, 'timerange', $timerange, false, ['id' => 'id_timerange']);
+echo html_writer::select($timerangeoptions, 'timerange', $timerange, false, [
+    'id' => 'id_timerange',
+    'aria-label' => get_string('filtertimerange', 'local_dashboard'),
+]);
 echo html_writer::end_div();
 echo html_writer::start_div('ld-filter-item');
 echo html_writer::tag('label', get_string('filterassessment', 'local_dashboard'), ['for' => 'id_quizid']);
-echo html_writer::select($quizoptions, 'quizid', $quizid, false, ['id' => 'id_quizid']);
+echo html_writer::select($quizoptions, 'quizid', $quizid, false, [
+    'id' => 'id_quizid',
+    'aria-label' => get_string('filterassessment', 'local_dashboard'),
+]);
 echo html_writer::end_div();
 echo html_writer::start_div('ld-filter-actions');
 echo html_writer::empty_tag('input', ['type' => 'submit', 'value' => get_string('applyfilters', 'local_dashboard'), 'class' => 'btn btn-primary']);
 echo html_writer::link(new moodle_url('/local/dashboard/index.php'), get_string('resetfilters', 'local_dashboard'), ['class' => 'btn btn-secondary']);
+if ($newassessmenturl) {
+    echo html_writer::link(
+        $newassessmenturl,
+        get_string('newassessment', 'local_dashboard'),
+        ['class' => 'btn btn-primary ld-new-assessment-btn']
+    );
+}
 echo html_writer::end_div();
 echo html_writer::end_tag('form');
 
@@ -244,10 +298,10 @@ $performertable->attributes['class'] = 'generaltable ld-table';
 $performertable->data = [];
 $rank = 1;
 foreach ($topperformers as $row) {
-    $clean = ((int) $row->failedflag !== 1);
-    $statuspill = $clean
-        ? html_writer::span(get_string('statusclean', 'local_dashboard'), 'ld-pill ld-pill-stat-clean')
-        : html_writer::span(get_string('statusalerts', 'local_dashboard'), 'ld-pill ld-pill-stat-pending');
+    $alertcount = (int) $row->alertcount;
+    $statuspill = $alertcount > 0
+        ? html_writer::span(get_string('statusalertcount', 'local_dashboard', $alertcount), 'ld-pill ld-pill-stat-pending')
+        : html_writer::span(get_string('statusclean', 'local_dashboard'), 'ld-pill ld-pill-stat-clean');
     $name = fullname((object) ['firstname' => $row->firstname, 'lastname' => $row->lastname]);
     $candidcell = html_writer::div($name, 'ld-candidate-name') .
         html_writer::div(

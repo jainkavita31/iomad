@@ -78,7 +78,7 @@ If review log is enabled, pending buckets exclude already reviewed candidate+qui
 ## Data freshness
 
 - Dashboard index data is cached for all-assessment view
-- Scheduled task refreshes cache every 2 hours
+- Scheduled task refreshes cache every 12 hours
 - "Sync now" triggers immediate refresh for current organisation
 
 ## Source of truth in code
