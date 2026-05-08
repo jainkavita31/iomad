@@ -253,7 +253,7 @@ $queueheadingurl = new moodle_url('/local/dashboard/queue.php', local_dashboard_
 $queueactionhtml = html_writer::div(
     html_writer::link(
         $queueheadingurl,
-        get_string('viewallqueue', 'local_dashboard', $reviewbacklog),
+        get_string('viewallqueue', 'local_dashboard', count($priorityqueue)),
         ['class' => 'ld-heading-action']
     ),
     'ld-panel-heading-action'
@@ -268,7 +268,6 @@ $queuetable->head = [
     get_string('queueassessment', 'local_dashboard'),
     get_string('queuealerts', 'local_dashboard'),
     get_string('queueseverity', 'local_dashboard'),
-    get_string('queuestatus', 'local_dashboard'),
     get_string('queuereview', 'local_dashboard'),
 ];
 $queuetable->attributes['class'] = 'generaltable ld-table';
@@ -278,18 +277,16 @@ foreach ($priorityqueue as $row) {
     $alerts = (int) $row->alertcount;
     $reviewlink = local_dashboard_proctor_reviewattempts_link_html((int) $row->userid, (int) $row->quizid, [], (int) $companyid);
     $sevpill = 'ld-pill ld-pill-sev-' . preg_replace('/^severity/', '', $severitykey);
-    $statpill = 'ld-pill ld-pill-stat-' . preg_replace('/^status/', '', $statuskey);
     $queuetable->data[] = [
         fullname((object) ['firstname' => $row->firstname, 'lastname' => $row->lastname]),
         local_dashboard_quizview_link_html((int) $row->quizid, (string) $row->quizname),
         '<span class="ld-td-alerts">' . $alerts . '</span>',
         html_writer::span(get_string($severitykey, 'local_dashboard'), $sevpill),
-        html_writer::span(get_string($statuskey, 'local_dashboard'), $statpill),
         $reviewlink,
     ];
 }
 if (empty($queuetable->data)) {
-    $queuetable->data[] = [get_string('nofiltereddata', 'local_dashboard'), '', '', '', '', ''];
+    $queuetable->data[] = [get_string('nofiltereddata', 'local_dashboard'), '', '', '', ''];
 }
 echo html_writer::table($queuetable);
 echo html_writer::end_div();

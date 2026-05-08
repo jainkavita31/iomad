@@ -57,13 +57,17 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.65rem 1rem;
-    margin-bottom: 0.65rem;
+    margin: 0 0 0.5rem;
     padding: 0.35rem 0.55rem;
     border-radius: var(--ld-panel-rad);
     border: 1px solid color-mix(in srgb, var(--ld-border) 65%, transparent);
     background: color-mix(in srgb, var(--bs-body-bg, #fff) 97%, #eef4ff);
     font-size: 0.78rem;
     color: #475569;
+}
+
+.local-dashboard.ld-main-page {
+    padding-top: 0.45rem;
 }
 
 .local-dashboard .ld-cache-asof {

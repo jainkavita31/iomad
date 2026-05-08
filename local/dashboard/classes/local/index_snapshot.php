@@ -148,25 +148,6 @@ final class index_snapshot {
         );
 
         $ldpend = \local_dashboard_review_log_pending_only_sql_parts();
-        $reviewbacklog = (int) $DB->count_records_sql(
-            "SELECT COUNT(DISTINCT qmp.attemptid)
-               FROM {quizaccess_main_proctor} qmp
-               JOIN {quiz_attempts} qa ON qa.id = qmp.attemptid
-               JOIN {quiz} q ON q.id = qa.quiz
-               JOIN {company_course} cc ON cc.courseid = q.course
-               JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
-                    {$ldpend['join']}
-              WHERE cc.companyid = :companyid
-                AND qp.enableproctoring = 1
-                AND qa.preview = 0
-                AND qa.timestart >= :fromtime
-                AND qmp.deleted = 0
-                AND qmp.image_status = 'M'
-                AND qmp.isautosubmit = 1
-                {$ldpend['where']}
-                $quizsql",
-            $baseparams
-        );
 
         $avgscorerecord = $DB->get_record_sql(
             "SELECT AVG((qa.sumgrades * 100.0) / NULLIF(q.sumgrades, 0)) AS avgscore
@@ -262,6 +243,8 @@ final class index_snapshot {
                 $lowriskpending++;
             }
         }
+        // Backlog = all pending sessions that still need review (low + medium + high).
+        $reviewbacklog = $lowriskpending + $mediumriskpending + $highriskpending;
         $autocleared = max($totalsessions - ($lowriskpending + $mediumriskpending + $highriskpending), 0);
 
         $assessmentstats = \local_dashboard_fetch_assessment_stats($companyid, (int) $r->fromtime, $quizsql, $baseparams);

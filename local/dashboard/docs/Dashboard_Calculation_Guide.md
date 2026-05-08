@@ -35,10 +35,9 @@ For proctoring metrics, only quizzes with proctoring enabled are used (`quizacce
   Distinct attempts where at least one non-deleted proctor event exists with non-empty status.
 
 - **Review backlog**  
-  Distinct proctor attempts with:
-  - `image_status = 'M'`
-  - `isautosubmit = 1`
-  - and (if review log table exists) not yet reviewed in `local_dashboard_proctor_review_log`
+  All pending sessions waiting for review:
+  - `lowriskpending + mediumriskpending + highriskpending`
+  - and (if review log table exists) excludes already reviewed candidate+quiz pairs from `local_dashboard_proctor_review_log`
 
 - **Average score**  
   Average of `(qa.sumgrades * 100 / q.sumgrades)` for finished attempts (`qa.timefinish > 0`).

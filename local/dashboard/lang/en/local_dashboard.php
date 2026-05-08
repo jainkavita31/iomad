@@ -72,7 +72,7 @@ $string['mediumriskpending'] = 'Medium-risk pending';
 $string['highriskpending'] = 'High-risk pending';
 
 $string['assessmenthealth'] = 'Assessment health overview';
-$string['assessmenthealthdesc'] = 'Alert volume, completion, and integrity status by assessment';
+$string['assessmenthealthdesc'] = 'Alert volume, completion and integrity status by assessment';
 $string['tablecourse'] = 'Course';
 $string['tableassessment'] = 'Assessment';
 $string['tablecandidates'] = 'Candidates';
