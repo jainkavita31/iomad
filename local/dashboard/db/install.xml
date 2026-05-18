@@ -11,6 +11,7 @@
         <FIELD NAME="candidate_userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Student reviewed"/>
         <FIELD NAME="quizid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="cmid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="attemptid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Quiz attempt reviewed"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
       </FIELDS>
       <KEYS>
@@ -20,6 +21,7 @@
       </KEYS>
       <INDEXES>
         <INDEX NAME="candidate_quiz_ix" UNIQUE="false" FIELDS="candidate_userid, quizid"/>
+        <INDEX NAME="attemptid_ix" UNIQUE="false" FIELDS="attemptid"/>
       </INDEXES>
     </TABLE>
     <TABLE NAME="local_dashboard_index_cache" COMMENT="Pre-computed exam dashboard index payload (cron / sync)">

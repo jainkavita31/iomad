@@ -21,6 +21,7 @@ require_login();
 
 $userid = required_param('userid', PARAM_INT);
 $quizid = required_param('quizid', PARAM_INT);
+$attemptid = optional_param('attemptid', 0, PARAM_INT);
 
 $quiz = $DB->get_record('quiz', ['id' => $quizid], 'id,course', MUST_EXIST);
 $cm = get_coursemodule_from_instance('quiz', $quizid, (int) $quiz->course, false, MUST_EXIST);
@@ -44,5 +45,8 @@ if (!$canreport && !$canviewdashboard) {
     require_capability('quizaccess/quizproctoring:quizproctoringoverallreport', $modctx);
 }
 
-// Logging runs in reviewattempts.php so direct bookmarks and this redirect both count once per page load.
-redirect(local_dashboard_proctor_reviewattempts_url($userid, (int) $cm->id, $quizid));
+$reviewurl = local_dashboard_proctor_reviewattempts_url($userid, (int) $cm->id, $quizid);
+if ($attemptid > 0) {
+    $reviewurl->param('attemptid', $attemptid);
+}
+redirect($reviewurl);

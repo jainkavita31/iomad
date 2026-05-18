@@ -40,6 +40,7 @@ class provider implements
             'candidate_userid' => 'privacy:metadata:candidate_userid',
             'quizid' => 'privacy:metadata:quizid',
             'cmid' => 'privacy:metadata:cmid',
+            'attemptid' => 'privacy:metadata:attemptid',
             'timecreated' => 'privacy:metadata:timecreated',
         ]);
         $collection->add_database_table('local_dashboard_index_cache', [

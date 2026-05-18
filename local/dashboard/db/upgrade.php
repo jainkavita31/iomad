@@ -66,5 +66,18 @@ function xmldb_local_dashboard_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026043023, 'local', 'dashboard');
     }
 
+    if ($oldversion < 2026043033) {
+        $table = new xmldb_table('local_dashboard_proctor_review_log');
+        $field = new xmldb_field('attemptid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        $index = new xmldb_index('attemptid_ix', XMLDB_INDEX_NOTUNIQUE, ['attemptid']);
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+        upgrade_plugin_savepoint(true, 2026043033, 'local', 'dashboard');
+    }
+
     return true;
 }

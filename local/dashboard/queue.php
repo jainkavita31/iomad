@@ -53,7 +53,7 @@ $PAGE->set_heading(get_string('queuepagetitle', 'local_dashboard'));
 $PAGE->requires->css(new moodle_url('/local/dashboard/styles.css'));
 
 $queueparams = $baseparams;
-$ldrev = local_dashboard_review_log_sql_parts();
+$ldpend = local_dashboard_review_log_pending_only_sql_parts();
 $priorityqueue = $DB->get_records_sql(
     "SELECT qmp.attemptid,
             u.id AS userid,
@@ -63,7 +63,6 @@ $priorityqueue = $DB->get_records_sql(
             q.name AS quizname,
             SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) AS alertcount,
             MAX(qmp.isautosubmit) AS isautosubmit
-            {$ldrev['select']}
        FROM {quizaccess_main_proctor} qmp
        JOIN {quiz_attempts} qa ON qa.id = qmp.attemptid
        JOIN {user} u ON u.id = qa.userid
@@ -72,15 +71,17 @@ $priorityqueue = $DB->get_records_sql(
        JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
        LEFT JOIN {quizaccess_proctor_data} pd ON pd.attemptid = qmp.attemptid
                                           AND pd.quizid = q.id
-            {$ldrev['join']}
+            {$ldpend['join']}
       WHERE cc.companyid = :companyid
         AND qp.enableproctoring = 1
         AND qa.preview = 0
         AND qa.timestart >= :fromtime
         AND qmp.deleted = 0
         AND qmp.image_status = 'M'
+        {$ldpend['where']}
         $quizsql
    GROUP BY qmp.attemptid, u.id, u.firstname, u.lastname, q.id, q.name
+  HAVING SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) > 0
    ORDER BY alertcount DESC, isautosubmit DESC",
     $queueparams
 );
@@ -144,7 +145,13 @@ $queuetable->data = [];
 foreach ($priorityqueue as $row) {
     [$severitykey, $statuskey] = local_dashboard_queue_row_status_keys($row);
     $alerts = (int) $row->alertcount;
-    $reviewlink = local_dashboard_proctor_reviewattempts_link_html((int) $row->userid, (int) $row->quizid, [], (int) $companyid);
+    $reviewlink = local_dashboard_proctor_reviewattempts_link_html(
+        (int) $row->userid,
+        (int) $row->quizid,
+        [],
+        (int) $companyid,
+        (int) $row->attemptid
+    );
     $sevpill = 'ld-pill ld-pill-sev-' . preg_replace('/^severity/', '', $severitykey);
     $queuetable->data[] = [
         fullname((object) ['firstname' => $row->firstname, 'lastname' => $row->lastname]),

@@ -38,7 +38,7 @@ final class index_snapshot {
         'highriskpending',
         'mediumriskpending',
         'lowriskpending',
-        'autocleared',
+        'zerorisk',
         'assessmentstats',
         'scorestats',
         'medianscore',
@@ -232,10 +232,13 @@ final class index_snapshot {
         $highriskpending = 0;
         $mediumriskpending = 0;
         $lowriskpending = 0;
+        $zerorisk = 0;
         foreach ($attemptriskrows as $attemptrow) {
             $warningcount = (int) $attemptrow->warningcount;
             $isautosubmit = (int) $attemptrow->isautosubmit;
-            if ($isautosubmit || $warningcount >= 6) {
+            if ($warningcount === 0) {
+                $zerorisk++;
+            } else if ($isautosubmit || $warningcount >= 6) {
                 $highriskpending++;
             } else if ($warningcount >= 3) {
                 $mediumriskpending++;
@@ -245,7 +248,6 @@ final class index_snapshot {
         }
         // Backlog = all pending sessions that still need review (low + medium + high).
         $reviewbacklog = $lowriskpending + $mediumriskpending + $highriskpending;
-        $autocleared = max($totalsessions - ($lowriskpending + $mediumriskpending + $highriskpending), 0);
 
         $assessmentstats = \local_dashboard_fetch_assessment_stats($companyid, (int) $r->fromtime, $quizsql, $baseparams);
 
@@ -320,7 +322,6 @@ final class index_snapshot {
         $topperformers = \local_dashboard_fetch_ranked_scores_rows($quizsql, $baseparams, 0, 10);
 
         $queueparams = $baseparams;
-        $ldrev = \local_dashboard_review_log_sql_parts();
         $priorityqueue = $DB->get_records_sql(
             "SELECT qmp.attemptid,
                     u.id AS userid,
@@ -330,7 +331,6 @@ final class index_snapshot {
                     q.name AS quizname,
                     SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) AS alertcount,
                     MAX(qmp.isautosubmit) AS isautosubmit
-                    {$ldrev['select']}
                FROM {quizaccess_main_proctor} qmp
                JOIN {quiz_attempts} qa ON qa.id = qmp.attemptid
                JOIN {user} u ON u.id = qa.userid
@@ -339,15 +339,17 @@ final class index_snapshot {
                JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
                LEFT JOIN {quizaccess_proctor_data} pd ON pd.attemptid = qmp.attemptid
                                                   AND pd.quizid = q.id
-                    {$ldrev['join']}
+                    {$ldpend['join']}
               WHERE cc.companyid = :companyid
                 AND qp.enableproctoring = 1
                 AND qa.preview = 0
                 AND qa.timestart >= :fromtime
                 AND qmp.deleted = 0
                 AND qmp.image_status = 'M'
+                {$ldpend['where']}
                 $quizsql
            GROUP BY qmp.attemptid, u.id, u.firstname, u.lastname, q.id, q.name
+          HAVING SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) > 0
            ORDER BY alertcount DESC, isautosubmit DESC",
             $queueparams,
             0,

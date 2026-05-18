@@ -30,6 +30,7 @@ require_once($CFG->dirroot . '/mod/quiz/accessrule/quizproctoring/lib.php');
 $userid = required_param('userid', PARAM_INT);
 $cmid = required_param('cmid', PARAM_INT);
 $quizid = required_param('quizid', PARAM_INT);
+$attemptid = optional_param('attemptid', 0, PARAM_INT);
 $reportingpagination = quizaccess_quizproctoring_get_reporting_pagination();
 $perpage = $reportingpagination;
 $page = optional_param('page', 0, PARAM_INT);
@@ -44,7 +45,7 @@ require_capability('quizaccess/quizproctoring:quizproctoringoverallreport', $con
 if (!empty($CFG->dirroot) && file_exists($CFG->dirroot . '/local/dashboard/lib.php')) {
     require_once($CFG->dirroot . '/local/dashboard/lib.php');
     if (function_exists('local_dashboard_note_proctor_review_access')) {
-        local_dashboard_note_proctor_review_access((int) $userid, (int) $cmid, (int) $quizid);
+        local_dashboard_note_proctor_review_access((int) $userid, (int) $cmid, (int) $quizid, (int) $attemptid);
     }
 }
 $proctoringimageshow = 1;

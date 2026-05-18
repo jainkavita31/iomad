@@ -100,7 +100,7 @@ $PAGE->set_title(get_string($titlekey, 'local_dashboard'));
 $PAGE->set_heading(get_string($titlekey, 'local_dashboard'));
 $PAGE->requires->css(new moodle_url('/local/dashboard/styles.css'));
 
-$ldrev = local_dashboard_review_log_sql_parts();
+$ldpend = local_dashboard_review_log_pending_only_sql_parts();
 
 $queuefrom = "
        FROM {quizaccess_main_proctor} qmp
@@ -111,13 +111,14 @@ $queuefrom = "
        JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
        LEFT JOIN {quizaccess_proctor_data} pd ON pd.attemptid = qmp.attemptid
                                           AND pd.quizid = q.id
-            {$ldrev['join']}
+            {$ldpend['join']}
       WHERE cc.companyid = :companyid
         AND qp.enableproctoring = 1
         AND qa.preview = 0
         AND qa.timestart >= :fromtime
         AND qmp.deleted = 0
         AND qmp.image_status = 'M'
+        {$ldpend['where']}
         $quizsql ";
 
 $queueselect = "SELECT qmp.attemptid,
@@ -127,8 +128,7 @@ $queueselect = "SELECT qmp.attemptid,
             q.id AS quizid,
             q.name AS quizname,
             SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) AS alertcount,
-            MAX(qmp.isautosubmit) AS isautosubmit
-            {$ldrev['select']} ";
+            MAX(qmp.isautosubmit) AS isautosubmit ";
 
 $queuegroup = " GROUP BY qmp.attemptid, u.id, u.firstname, u.lastname, q.id, q.name ";
 
@@ -139,7 +139,13 @@ $queuegroup = " GROUP BY qmp.attemptid, u.id, u.firstname, u.lastname, q.id, q.n
 $queuerowcells = function (stdClass $row) use ($companyid): array {
     [$severitykey, $statuskey] = local_dashboard_queue_row_status_keys($row);
     $alerts = (int) $row->alertcount;
-    $reviewlink = local_dashboard_proctor_reviewattempts_link_html((int) $row->userid, (int) $row->quizid, [], (int) $companyid);
+    $reviewlink = local_dashboard_proctor_reviewattempts_link_html(
+        (int) $row->userid,
+        (int) $row->quizid,
+        [],
+        (int) $companyid,
+        (int) $row->attemptid
+    );
     $sevpill = 'ld-pill ld-pill-sev-' . preg_replace('/^severity/', '', $severitykey);
     $statpill = 'ld-pill ld-pill-stat-' . preg_replace('/^status/', '', $statuskey);
     return [
@@ -201,8 +207,9 @@ echo html_writer::end_tag('form');
 if ($view === 'highrisk') {
     $rows = $DB->get_records_sql(
         $queueselect . $queuefrom . $queuegroup .
-        " HAVING MAX(qmp.isautosubmit) = 1
-            OR SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) >= 6
+        " HAVING SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) > 0
+            AND (MAX(qmp.isautosubmit) = 1
+            OR SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) >= 6)
         ORDER BY alertcount DESC, isautosubmit DESC",
         $baseparams
     );
@@ -229,7 +236,8 @@ if ($view === 'highrisk') {
 } else if ($view === 'lowrisk') {
     $rows = $DB->get_records_sql(
         $queueselect . $queuefrom . $queuegroup .
-        " HAVING MAX(qmp.isautosubmit) = 0
+        " HAVING SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) > 0
+            AND MAX(qmp.isautosubmit) = 0
             AND SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) >= 1
             AND SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) <= 2
         ORDER BY alertcount DESC",

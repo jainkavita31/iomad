@@ -25,7 +25,8 @@
 $string['pluginname'] = 'Exam Dashboard';
 $string['dashboard:view'] = 'View exam dashboard';
 $string['local/dashboard:view'] = 'View exam dashboard';
-$string['privacy:metadata'] = 'The exam dashboard stores proctor review access when a reviewer opens ProctorLink reviewattempts.php (reviewer, candidate, quiz, time). Aggregate dashboard metrics are otherwise not stored per user in this plugin.';
+$string['privacy:metadata'] = 'The exam dashboard stores proctor review access when a reviewer opens ProctorLink reviewattempts.php (reviewer, candidate, quiz, attempt when available, time). Aggregate dashboard metrics are otherwise not stored per user in this plugin.';
+$string['privacy:metadata:attemptid'] = 'Quiz attempt id that was reviewed (when column exists).';
 $string['privacy:metadata:reviewer_userid'] = 'The user who opened the proctor review screen.';
 $string['privacy:metadata:candidate_userid'] = 'The student whose proctoring was viewed.';
 $string['privacy:metadata:quizid'] = 'Quiz instance id.';
@@ -67,6 +68,7 @@ $string['otheranomalies'] = 'Other anomalies';
 $string['reviewpipeline'] = 'Review pipeline';
 $string['totalsessions'] = 'Total sessions';
 $string['autocleared'] = 'Auto-cleared';
+$string['zerorisk'] = 'Zero-risk';
 $string['lowriskpending'] = 'Low-risk pending';
 $string['mediumriskpending'] = 'Medium-risk pending';
 $string['highriskpending'] = 'High-risk pending';

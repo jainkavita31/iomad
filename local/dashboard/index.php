@@ -91,6 +91,14 @@ if ($needsperformeralertrefresh) {
     }
 }
 
+// Backward compatibility: cached payloads may still use autocleared instead of zerorisk.
+if (!isset($zerorisk) && isset($autocleared)) {
+    $zerorisk = $autocleared;
+}
+if (!isset($zerorisk)) {
+    $zerorisk = 0;
+}
+
 // CTA: prefer selected assessment course; fallback to first company course with manageactivities.
 $companycourseids = $DB->get_fieldset_sql(
     "SELECT cc.courseid
@@ -234,7 +242,7 @@ echo local_dashboard_section_heading('h3', 'reviewpipeline', 'pipeline');
 echo html_writer::start_div('ld-pipeline-grid');
 $pipelinecards = [
     ['totalsessions', $totalsessions, 'ld-pipeline-card--total'],
-    ['autocleared', $autocleared, 'ld-pipeline-card--cleared'],
+    ['zerorisk', $zerorisk, 'ld-pipeline-card--cleared'],
     ['lowriskpending', $lowriskpending, 'ld-pipeline-card--low'],
     ['mediumriskpending', $mediumriskpending, 'ld-pipeline-card--medium'],
     ['highriskpending', $highriskpending, 'ld-pipeline-card--high'],
@@ -275,7 +283,13 @@ $queuetable->data = [];
 foreach ($priorityqueue as $row) {
     [$severitykey, $statuskey] = local_dashboard_queue_row_status_keys($row);
     $alerts = (int) $row->alertcount;
-    $reviewlink = local_dashboard_proctor_reviewattempts_link_html((int) $row->userid, (int) $row->quizid, [], (int) $companyid);
+    $reviewlink = local_dashboard_proctor_reviewattempts_link_html(
+        (int) $row->userid,
+        (int) $row->quizid,
+        [],
+        (int) $companyid,
+        (int) $row->attemptid
+    );
     $sevpill = 'ld-pill ld-pill-sev-' . preg_replace('/^severity/', '', $severitykey);
     $queuetable->data[] = [
         fullname((object) ['firstname' => $row->firstname, 'lastname' => $row->lastname]),

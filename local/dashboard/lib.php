@@ -154,7 +154,13 @@ function local_dashboard_proctor_reviewattempts_url(int $userid, int $cmid, int 
  * @param int|null $dashboardcompanyid Company id from dashboard filters (non-admin); optional.
  * @return string HTML
  */
-function local_dashboard_proctor_reviewattempts_link_html(int $userid, int $quizid, array $linkattrs = [], ?int $dashboardcompanyid = null): string {
+function local_dashboard_proctor_reviewattempts_link_html(
+    int $userid,
+    int $quizid,
+    array $linkattrs = [],
+    ?int $dashboardcompanyid = null,
+    int $attemptid = 0
+): string {
     global $DB;
 
     $label = get_string('reviewarrow', 'local_dashboard');
@@ -186,10 +192,14 @@ function local_dashboard_proctor_reviewattempts_link_html(int $userid, int $quiz
     if (!$allowlink) {
         return $label;
     }
-    $url = new moodle_url('/local/dashboard/proctor_review_entry.php', [
+    $urlparams = [
         'userid' => $userid,
         'quizid' => $quizid,
-    ]);
+    ];
+    if ($attemptid > 0) {
+        $urlparams['attemptid'] = $attemptid;
+    }
+    $url = new moodle_url('/local/dashboard/proctor_review_entry.php', $urlparams);
     $attrs = array_merge(['class' => 'ld-review-link'], $linkattrs);
     return html_writer::link($url, $label, $attrs);
 }
@@ -433,7 +443,25 @@ function local_dashboard_review_log_table_ready(): bool {
 }
 
 /**
- * SQL fragments to attach latest review time per candidate+quiz (for queue status).
+ * Whether review log rows are keyed by quiz attempt id (post-upgrade).
+ *
+ * @return bool
+ */
+function local_dashboard_review_log_has_attemptid(): bool {
+    global $DB;
+    static $has = null;
+    if ($has !== null) {
+        return $has;
+    }
+    if (!local_dashboard_review_log_table_ready()) {
+        return $has = false;
+    }
+    $columns = $DB->get_columns('local_dashboard_proctor_review_log');
+    return $has = array_key_exists('attemptid', $columns);
+}
+
+/**
+ * SQL fragments to attach latest review time per attempt (or legacy candidate+quiz).
  *
  * @return array{join: string, select: string}
  */
@@ -442,6 +470,17 @@ function local_dashboard_review_log_sql_parts(): array {
         return [
             'join' => '',
             'select' => ', NULL AS reviewedat',
+        ];
+    }
+    if (local_dashboard_review_log_has_attemptid()) {
+        return [
+            'join' => " LEFT JOIN (
+                            SELECT attemptid, MAX(timecreated) AS reviewedat
+                              FROM {local_dashboard_proctor_review_log}
+                             WHERE attemptid > 0
+                          GROUP BY attemptid
+                       ) ld_rev ON ld_rev.attemptid = qmp.attemptid ",
+            'select' => ', ld_rev.reviewedat',
         ];
     }
     return [
@@ -455,16 +494,26 @@ function local_dashboard_review_log_sql_parts(): array {
 }
 
 /**
- * JOIN + WHERE fragment to limit queries to candidate+quiz pairs not yet in the review log.
- * Matches queue "Reviewed" semantics (log keyed by candidate_userid + quizid).
+ * JOIN + WHERE fragment to exclude attempts already logged as reviewed.
  *
- * Queries must alias attempts as qa and quiz as q, and use qa.userid as the candidate id.
+ * Queries must join {quizaccess_main_proctor} as qmp (attempt id).
  *
  * @return array{join: string, where: string}
  */
 function local_dashboard_review_log_pending_only_sql_parts(): array {
     if (!local_dashboard_review_log_table_ready()) {
         return ['join' => '', 'where' => ''];
+    }
+    if (local_dashboard_review_log_has_attemptid()) {
+        return [
+            'join' => " LEFT JOIN (
+                            SELECT attemptid AS apid, MAX(timecreated) AS reviewedat
+                              FROM {local_dashboard_proctor_review_log}
+                             WHERE attemptid > 0
+                          GROUP BY attemptid
+                       ) ld_pend ON ld_pend.apid = qmp.attemptid ",
+            'where' => ' AND ld_pend.reviewedat IS NULL ',
+        ];
     }
     return [
         'join' => " LEFT JOIN (
@@ -477,14 +526,15 @@ function local_dashboard_review_log_pending_only_sql_parts(): array {
 }
 
 /**
- * Log that the current user opened the ProctorLink review page for a candidate+quiz.
+ * Log that the current user opened the ProctorLink review page for a candidate attempt.
  *
  * @param int $candidateuserid Student user id.
  * @param int $cmid Quiz course-module id.
  * @param int $quizid Quiz instance id.
+ * @param int $attemptid Quiz attempt id (0 = not stored when column missing).
  * @return void
  */
-function local_dashboard_note_proctor_review_access(int $candidateuserid, int $cmid, int $quizid): void {
+function local_dashboard_note_proctor_review_access(int $candidateuserid, int $cmid, int $quizid, int $attemptid = 0): void {
     global $DB, $USER;
 
     if (!local_dashboard_review_log_table_ready() || isguestuser() || empty($USER->id)) {
@@ -497,6 +547,9 @@ function local_dashboard_note_proctor_review_access(int $candidateuserid, int $c
         'cmid' => $cmid,
         'timecreated' => time(),
     ];
+    if ($attemptid > 0 && local_dashboard_review_log_has_attemptid()) {
+        $record->attemptid = $attemptid;
+    }
     $DB->insert_record('local_dashboard_proctor_review_log', $record);
 }
 
