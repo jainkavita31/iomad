@@ -45,6 +45,8 @@ if (!$canreport && !$canviewdashboard) {
     require_capability('quizaccess/quizproctoring:quizproctoringoverallreport', $modctx);
 }
 
+local_dashboard_note_proctor_review_access((int) $userid, (int) $cm->id, $quizid, (int) $attemptid);
+
 $reviewurl = local_dashboard_proctor_reviewattempts_url($userid, (int) $cm->id, $quizid);
 if ($attemptid > 0) {
     $reviewurl->param('attemptid', $attemptid);

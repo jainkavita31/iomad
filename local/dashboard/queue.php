@@ -152,7 +152,7 @@ foreach ($priorityqueue as $row) {
         (int) $companyid,
         (int) $row->attemptid
     );
-    $sevpill = 'ld-pill ld-pill-sev-' . preg_replace('/^severity/', '', $severitykey);
+    $sevpill = local_dashboard_queue_severity_pill_classes($severitykey);
     $queuetable->data[] = [
         fullname((object) ['firstname' => $row->firstname, 'lastname' => $row->lastname]),
         local_dashboard_quizview_link_html((int) $row->quizid, (string) $row->quizname),

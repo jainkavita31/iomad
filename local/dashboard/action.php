@@ -146,7 +146,7 @@ $queuerowcells = function (stdClass $row) use ($companyid): array {
         (int) $companyid,
         (int) $row->attemptid
     );
-    $sevpill = 'ld-pill ld-pill-sev-' . preg_replace('/^severity/', '', $severitykey);
+    $sevpill = local_dashboard_queue_severity_pill_classes($severitykey);
     $statpill = 'ld-pill ld-pill-stat-' . preg_replace('/^status/', '', $statuskey);
     return [
         fullname((object) ['firstname' => $row->firstname, 'lastname' => $row->lastname]),

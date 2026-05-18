@@ -411,10 +411,28 @@
     text-transform: capitalize;
 }
 
-.local-dashboard .ld-pill-sev-critical { background: #fee2e2; color: #b91c1c; }
-.local-dashboard .ld-pill-sev-high { background: #ffedd5; color: #c2410c; }
-.local-dashboard .ld-pill-sev-medium { background: #fef9c3; color: #a16207; }
-.local-dashboard .ld-pill-sev-low { background: #f1f5f9; color: #475569; }
+.local-dashboard .ld-pill.ld-pill-sev-highrisk,
+.local-dashboard .ld-pill.ld-pill-sev-critical,
+.local-dashboard .ld-table .ld-pill.ld-pill-sev-highrisk,
+.local-dashboard .ld-table .ld-pill.ld-pill-sev-critical {
+    background-color: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #f87171;
+}
+
+.local-dashboard .ld-pill.ld-pill-sev-medium,
+.local-dashboard .ld-table .ld-pill.ld-pill-sev-medium {
+    background-color: #ffedd5;
+    color: #c2410c;
+    border: 1px solid #fb923c;
+}
+
+.local-dashboard .ld-pill.ld-pill-sev-low,
+.local-dashboard .ld-table .ld-pill.ld-pill-sev-low {
+    background-color: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+}
 
 .local-dashboard .ld-pill-stat-reviewed {
     background: #e0f2fe;

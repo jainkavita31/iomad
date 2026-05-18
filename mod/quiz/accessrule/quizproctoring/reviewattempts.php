@@ -42,12 +42,6 @@ $course = $coursemodule[0];
 $cm = $coursemodule[1];
 require_login($course, true, $cm);
 require_capability('quizaccess/quizproctoring:quizproctoringoverallreport', $context);
-if (!empty($CFG->dirroot) && file_exists($CFG->dirroot . '/local/dashboard/lib.php')) {
-    require_once($CFG->dirroot . '/local/dashboard/lib.php');
-    if (function_exists('local_dashboard_note_proctor_review_access')) {
-        local_dashboard_note_proctor_review_access((int) $userid, (int) $cmid, (int) $quizid, (int) $attemptid);
-    }
-}
 $proctoringimageshow = 1;
 if ($proctoringimageshow == 1) {
     $PAGE->set_url(new moodle_url('/mod/quiz/accessrule/quizproctoring/reviewattempts.php', [

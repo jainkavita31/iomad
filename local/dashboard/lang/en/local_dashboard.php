@@ -25,7 +25,7 @@
 $string['pluginname'] = 'Exam Dashboard';
 $string['dashboard:view'] = 'View exam dashboard';
 $string['local/dashboard:view'] = 'View exam dashboard';
-$string['privacy:metadata'] = 'The exam dashboard stores proctor review access when a reviewer opens ProctorLink reviewattempts.php (reviewer, candidate, quiz, attempt when available, time). Aggregate dashboard metrics are otherwise not stored per user in this plugin.';
+$string['privacy:metadata'] = 'The exam dashboard stores proctor review access when a reviewer opens a review via the dashboard review link (reviewer, candidate, quiz, attempt when available, time). Direct access to the proctor report page is not logged. Aggregate dashboard metrics are otherwise not stored per user in this plugin.';
 $string['privacy:metadata:attemptid'] = 'Quiz attempt id that was reviewed (when column exists).';
 $string['privacy:metadata:reviewer_userid'] = 'The user who opened the proctor review screen.';
 $string['privacy:metadata:candidate_userid'] = 'The student whose proctoring was viewed.';
@@ -129,7 +129,7 @@ $string['medianlabel'] = 'Median';
 $string['recommendedactions'] = 'Recommended actions';
 $string['reviewhighriskaction'] = 'Review high-risk sessions';
 $string['reviewhighriskactioncount'] = 'Review {$a} high-risk sessions';
-$string['reviewhighriskdesc'] = 'Critical and high-severity alerts pending';
+$string['reviewhighriskdesc'] = 'High-risk sessions pending review';
 $string['investigateaction'] = 'Investigate alert spike';
 $string['investigatedesc'] = 'Warning trend above normal threshold';
 $string['approveaction'] = 'Approve low-risk sessions';
@@ -188,8 +188,7 @@ $string['actionpage_intro_scores'] = 'Every candidate best score in scope, highe
 $string['actionpage_intro_activity'] = 'All proctored assessments in scope, ordered by total alert count.';
 $string['actionpage_rowcount'] = '{$a} rows';
 
-$string['severitycritical'] = 'Critical';
-$string['severityhigh'] = 'High';
+$string['severityhighrisk'] = 'High-risk';
 $string['severitymedium'] = 'Medium';
 $string['severitylow'] = 'Low';
 $string['statuspending'] = 'Pending';

@@ -64,6 +64,10 @@ If review log is enabled, pending buckets exclude attempts already logged as rev
 ## Priority Review Queue widget
 
 - Only sessions with **alert count > 0** (zero-warning sessions are excluded)
+- **Severity** labels match the review pipeline buckets:
+  - **High-risk**: autosubmit OR `alertcount >= 6`
+  - **Medium**: `alertcount >= 3` (and not high-risk)
+  - **Low**: `alertcount >= 1` (and not medium/high)
 - Sorted by `alertcount DESC`, then `isautosubmit DESC`
 - Shows top **10** rows on dashboard widget
 - Full list is available on queue detail page

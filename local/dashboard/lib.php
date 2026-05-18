@@ -559,20 +559,21 @@ function local_dashboard_note_proctor_review_access(int $candidateuserid, int $c
  * Row must include: alertcount, isautosubmit; optional reviewedat (unix int or null).
  *
  * @param stdClass $row
- * @return array{0: string, 1: string} [severitykey, statuskey] full keys e.g. severityhigh, statusreviewed
+ * @return array{0: string, 1: string} [severitykey, statuskey] full keys e.g. severityhighrisk, statusreviewed
  */
 function local_dashboard_queue_row_status_keys(stdClass $row): array {
     $alerts = (int) $row->alertcount;
     $isautosubmit = (int) $row->isautosubmit;
     $reviewed = !empty($row->reviewedat);
 
+    // Same thresholds as review pipeline: high / medium / low risk pending.
     $severitykey = 'severitylow';
     if ($isautosubmit === 1 || $alerts >= 6) {
-        $severitykey = 'severitycritical';
+        $severitykey = 'severityhighrisk';
     } else if ($alerts >= 3) {
-        $severitykey = 'severityhigh';
-    } else if ($alerts >= 1) {
         $severitykey = 'severitymedium';
+    } else if ($alerts >= 1) {
+        $severitykey = 'severitylow';
     }
 
     $needsreview = ($isautosubmit === 1 || $alerts >= 1);
@@ -583,6 +584,21 @@ function local_dashboard_queue_row_status_keys(stdClass $row): array {
         return [$severitykey, 'statusreviewed'];
     }
     return [$severitykey, 'statuspending'];
+}
+
+/**
+ * CSS classes for a priority-queue severity pill (aligned with review pipeline colours).
+ *
+ * @param string $severitykey e.g. severityhighrisk
+ * @return string
+ */
+function local_dashboard_queue_severity_pill_classes(string $severitykey): string {
+    $map = [
+        'severityhighrisk' => 'ld-pill ld-pill-sev-highrisk ld-pill-sev-critical',
+        'severitymedium' => 'ld-pill ld-pill-sev-medium',
+        'severitylow' => 'ld-pill ld-pill-sev-low',
+    ];
+    return $map[$severitykey] ?? 'ld-pill ld-pill-sev-low';
 }
 
 /**
