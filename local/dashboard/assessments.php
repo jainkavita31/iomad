@@ -113,6 +113,7 @@ usort($assessmentstats, static function ($a, $b) {
 
 $table = new html_table();
 $table->head = [
+    get_string('rank', 'local_dashboard'),
     get_string('tableassessment', 'local_dashboard'),
     get_string('tablecourse', 'local_dashboard'),
     get_string('statcandidates', 'local_dashboard'),
@@ -128,6 +129,7 @@ $table->head = [
 ];
 $table->attributes['class'] = 'generaltable ld-table ld-detail-table ld-assessments-detail-table';
 $table->data = [];
+$rank = 1;
 foreach ($assessmentstats as $row) {
     $quizcell = local_dashboard_quizview_link_html((int) $row->quizid, (string) $row->quiznameraw);
     if (!empty($row->unusual)) {
@@ -137,6 +139,7 @@ foreach ($assessmentstats as $row) {
         );
     }
     $table->data[] = [
+        html_writer::span((string) $rank++, 'ld-rank-box'),
         $quizcell,
         $row->course,
         number_format($row->users),

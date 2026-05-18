@@ -134,6 +134,7 @@ echo html_writer::end_div();
 
 $queuetable = new html_table();
 $queuetable->head = [
+    get_string('rank', 'local_dashboard'),
     get_string('queuecandidate', 'local_dashboard'),
     get_string('queueassessment', 'local_dashboard'),
     get_string('queuealerts', 'local_dashboard'),
@@ -142,6 +143,7 @@ $queuetable->head = [
 ];
 $queuetable->attributes['class'] = 'generaltable ld-table ld-detail-table';
 $queuetable->data = [];
+$rank = 1;
 foreach ($priorityqueue as $row) {
     [$severitykey, $statuskey] = local_dashboard_queue_row_status_keys($row);
     $alerts = (int) $row->alertcount;
@@ -154,6 +156,7 @@ foreach ($priorityqueue as $row) {
     );
     $sevpill = local_dashboard_queue_severity_pill_classes($severitykey);
     $queuetable->data[] = [
+        html_writer::span((string) $rank++, 'ld-rank-box'),
         fullname((object) ['firstname' => $row->firstname, 'lastname' => $row->lastname]),
         local_dashboard_quizview_link_html((int) $row->quizid, (string) $row->quizname),
         '<span class="ld-td-alerts">' . $alerts . '</span>',
@@ -162,7 +165,7 @@ foreach ($priorityqueue as $row) {
     ];
 }
 if (empty($queuetable->data)) {
-    $queuetable->data[] = [get_string('nofiltereddata', 'local_dashboard'), '', '', '', ''];
+    $queuetable->data[] = [get_string('nofiltereddata', 'local_dashboard'), '', '', '', '', ''];
 }
 echo html_writer::table($queuetable);
 
