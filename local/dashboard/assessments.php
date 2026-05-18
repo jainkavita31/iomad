@@ -58,6 +58,7 @@ $PAGE->set_pagelayout('report');
 $PAGE->set_title(get_string('assessmentspagetitle', 'local_dashboard'));
 $PAGE->set_heading(get_string('assessmentspagetitle', 'local_dashboard'));
 $PAGE->requires->css(new moodle_url('/local/dashboard/styles.css'));
+local_dashboard_require_datatables();
 
 $assessmentstats = local_dashboard_fetch_assessment_stats($companyid, $fromtime, $quizsqlall, $baseparamsall);
 
@@ -128,6 +129,7 @@ $table->head = [
     get_string('tablepcthighriskcol', 'local_dashboard'),
 ];
 $table->attributes['class'] = 'generaltable ld-table ld-detail-table ld-assessments-detail-table';
+$table->attributes['id'] = 'ld-assessments-datatable';
 $table->data = [];
 $rank = 1;
 foreach ($assessmentstats as $row) {
@@ -164,6 +166,13 @@ if (empty($table->data)) {
 echo html_writer::start_div('ld-assessments-table-wrap');
 echo html_writer::table($table);
 echo html_writer::end_div();
+
+local_dashboard_init_datatable('#ld-assessments-datatable', 50, [
+    'order' => [[7, 'desc']],
+    'columndefs' => [
+        ['orderable' => false, 'targets' => [0]],
+    ],
+]);
 
 echo html_writer::end_div();
 echo $OUTPUT->footer();

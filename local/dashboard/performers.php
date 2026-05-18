@@ -50,6 +50,7 @@ $PAGE->set_pagelayout('report');
 $PAGE->set_title(get_string('performerspagetitle', 'local_dashboard'));
 $PAGE->set_heading(get_string('performerspagetitle', 'local_dashboard'));
 $PAGE->requires->css(new moodle_url('/local/dashboard/styles.css'));
+local_dashboard_require_datatables();
 
 $topperformers = local_dashboard_fetch_ranked_scores_rows($quizsql, $baseparams);
 
@@ -105,6 +106,7 @@ $performertable->head = [
     get_string('session', 'local_dashboard'),
 ];
 $performertable->attributes['class'] = 'generaltable ld-table ld-detail-table';
+$performertable->attributes['id'] = 'ld-performers-datatable';
 $performertable->data = [];
 $rank = 1;
 foreach ($topperformers as $row) {
@@ -129,6 +131,13 @@ if (empty($performertable->data)) {
     $performertable->data[] = [get_string('nofiltereddata', 'local_dashboard'), '', '', ''];
 }
 echo html_writer::table($performertable);
+
+local_dashboard_init_datatable('#ld-performers-datatable', 50, [
+    'order' => [[2, 'desc']],
+    'columndefs' => [
+        ['orderable' => false, 'targets' => [0, 1, 3]],
+    ],
+]);
 
 echo html_writer::end_div();
 echo $OUTPUT->footer();

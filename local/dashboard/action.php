@@ -99,6 +99,7 @@ $titlekey = 'actionpage_title_' . $view;
 $PAGE->set_title(get_string($titlekey, 'local_dashboard'));
 $PAGE->set_heading(get_string($titlekey, 'local_dashboard'));
 $PAGE->requires->css(new moodle_url('/local/dashboard/styles.css'));
+local_dashboard_require_datatables();
 
 $ldpend = local_dashboard_review_log_pending_only_sql_parts();
 
@@ -224,6 +225,7 @@ if ($view === 'highrisk') {
         get_string('queuereview', 'local_dashboard'),
     ];
     $table->attributes['class'] = 'generaltable ld-table ld-detail-table';
+    $table->attributes['id'] = 'ld-action-datatable';
     $table->data = [];
     foreach ($rows as $row) {
         $table->data[] = $queuerowcells($row);
@@ -232,6 +234,12 @@ if ($view === 'highrisk') {
         $table->data[] = [get_string('nofiltereddata', 'local_dashboard'), '', '', '', '', ''];
     }
     echo html_writer::table($table);
+    local_dashboard_init_datatable('#ld-action-datatable', 50, [
+        'order' => [[2, 'desc']],
+        'columndefs' => [
+            ['orderable' => false, 'targets' => [5]],
+        ],
+    ]);
 
 } else if ($view === 'lowrisk') {
     $rows = $DB->get_records_sql(
@@ -254,6 +262,7 @@ if ($view === 'highrisk') {
         get_string('queuereview', 'local_dashboard'),
     ];
     $table->attributes['class'] = 'generaltable ld-table ld-detail-table';
+    $table->attributes['id'] = 'ld-action-datatable';
     $table->data = [];
     foreach ($rows as $row) {
         $table->data[] = $queuerowcells($row);
@@ -262,6 +271,12 @@ if ($view === 'highrisk') {
         $table->data[] = [get_string('nofiltereddata', 'local_dashboard'), '', '', '', '', ''];
     }
     echo html_writer::table($table);
+    local_dashboard_init_datatable('#ld-action-datatable', 50, [
+        'order' => [[2, 'desc']],
+        'columndefs' => [
+            ['orderable' => false, 'targets' => [5]],
+        ],
+    ]);
 
 } else if ($view === 'scores') {
     $rows = local_dashboard_fetch_ranked_scores_rows($quizsql, $baseparams);
@@ -283,6 +298,7 @@ if ($view === 'highrisk') {
         get_string('session', 'local_dashboard'),
     ];
     $table->attributes['class'] = 'generaltable ld-table ld-detail-table';
+    $table->attributes['id'] = 'ld-action-datatable';
     $table->data = [];
     $rank = 1;
     foreach ($rows as $row) {
@@ -307,6 +323,12 @@ if ($view === 'highrisk') {
         $table->data[] = [get_string('nofiltereddata', 'local_dashboard'), '', '', ''];
     }
     echo html_writer::table($table);
+    local_dashboard_init_datatable('#ld-action-datatable', 50, [
+        'order' => [[2, 'desc']],
+        'columndefs' => [
+            ['orderable' => false, 'targets' => [0, 1, 3]],
+        ],
+    ]);
 
 } else if ($view === 'activity' || $view === 'spike') {
     $stats = local_dashboard_fetch_assessment_stats($companyid, $fromtime, $quizsql, $baseparams);
@@ -329,6 +351,7 @@ if ($view === 'highrisk') {
         get_string('statflagged', 'local_dashboard'),
     ];
     $table->attributes['class'] = 'generaltable ld-table ld-detail-table';
+    $table->attributes['id'] = 'ld-action-datatable';
     $table->data = [];
     foreach ($stats as $row) {
         // Rows use quiznameraw + quizid from fetch_assessment_stats.
@@ -349,6 +372,9 @@ if ($view === 'highrisk') {
         $table->data[] = [get_string('nofiltereddata', 'local_dashboard'), '', '', '', '', ''];
     }
     echo html_writer::table($table);
+    local_dashboard_init_datatable('#ld-action-datatable', 50, [
+        'order' => [[4, 'desc']],
+    ]);
 }
 
 echo html_writer::end_div();

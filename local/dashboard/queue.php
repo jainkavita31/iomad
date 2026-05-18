@@ -51,6 +51,7 @@ $PAGE->set_pagelayout('report');
 $PAGE->set_title(get_string('queuepagetitle', 'local_dashboard'));
 $PAGE->set_heading(get_string('queuepagetitle', 'local_dashboard'));
 $PAGE->requires->css(new moodle_url('/local/dashboard/styles.css'));
+local_dashboard_require_datatables();
 
 $queueparams = $baseparams;
 $ldpend = local_dashboard_review_log_pending_only_sql_parts();
@@ -142,6 +143,7 @@ $queuetable->head = [
     get_string('queuereview', 'local_dashboard'),
 ];
 $queuetable->attributes['class'] = 'generaltable ld-table ld-detail-table';
+$queuetable->attributes['id'] = 'ld-queue-datatable';
 $queuetable->data = [];
 $rank = 1;
 foreach ($priorityqueue as $row) {
@@ -168,6 +170,13 @@ if (empty($queuetable->data)) {
     $queuetable->data[] = [get_string('nofiltereddata', 'local_dashboard'), '', '', '', '', ''];
 }
 echo html_writer::table($queuetable);
+
+local_dashboard_init_datatable('#ld-queue-datatable', 50, [
+    'order' => [[3, 'desc']],
+    'columndefs' => [
+        ['orderable' => false, 'targets' => [0, 5]],
+    ],
+]);
 
 echo html_writer::end_div();
 echo $OUTPUT->footer();

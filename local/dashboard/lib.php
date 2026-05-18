@@ -602,6 +602,83 @@ function local_dashboard_queue_severity_pill_classes(string $severitykey): strin
 }
 
 /**
+ * Load jQuery DataTables (same CDN stack as quizaccess_quizproctoring reports).
+ *
+ * @return void
+ */
+function local_dashboard_require_datatables(): void {
+    global $PAGE;
+
+    static $loaded = false;
+    if ($loaded) {
+        return;
+    }
+    $loaded = true;
+
+    $PAGE->requires->css(new moodle_url('https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css'));
+    $PAGE->requires->js(new moodle_url('https://code.jquery.com/jquery-3.7.0.min.js'), true);
+    $PAGE->requires->js(new moodle_url('https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js'), true);
+}
+
+/**
+ * Initialise a client-side DataTable on a detail-page table.
+ *
+ * Call {@see local_dashboard_require_datatables()} before $OUTPUT->header(); this function
+ * only queues the footer JavaScript initialisation.
+ *
+ * @param string $selector jQuery selector (e.g. '#ld-queue-datatable').
+ * @param int $pagelength Rows per page (default 50).
+ * @param array $options Optional keys: order (array), columndefs (array), searchable (bool).
+ * @return void
+ */
+function local_dashboard_init_datatable(string $selector, int $pagelength = 50, array $options = []): void {
+    global $PAGE;
+
+    $pagelength = max(10, min(500, $pagelength));
+    $searchable = $options['searchable'] ?? true;
+
+    $config = [
+        'pageLength' => $pagelength,
+        'lengthMenu' => [[25, 50, 100, -1], [25, 50, 100, 'All']],
+        'order' => $options['order'] ?? [],
+        'searching' => (bool) $searchable,
+        'language' => [
+            'search' => 'Search:',
+            'lengthMenu' => 'Show _MENU_ rows',
+            'info' => 'Showing _START_ to _END_ of _TOTAL_',
+            'paginate' => [
+                'next' => 'Next',
+                'previous' => 'Previous',
+            ],
+            'zeroRecords' => 'No matching records found',
+            'infoEmpty' => 'No records available',
+            'infoFiltered' => '(filtered from _MAX_ total)',
+        ],
+    ];
+
+    if (!empty($options['columndefs'])) {
+        $config['columnDefs'] = $options['columndefs'];
+    }
+
+    $selectorjson = json_encode($selector);
+    $configjson = json_encode($config, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+
+    $PAGE->requires->js_init_code(<<<JS
+jQuery(function($) {
+    var \$table = $({$selectorjson});
+    if (!\$table.length) {
+        return;
+    }
+    if ($.fn.DataTable && $.fn.DataTable.isDataTable(\$table)) {
+        return;
+    }
+    \$table.DataTable({$configjson});
+});
+JS
+    );
+}
+
+/**
  * URL for a recommended-action detail page.
  *
  * @param stdClass $r Bootstrap object from local_dashboard_bootstrap_report().

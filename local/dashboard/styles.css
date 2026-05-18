@@ -754,10 +754,33 @@
     line-height: 1;
 }
 
+.local-dashboard .dataTables_wrapper {
+    margin-top: 0.75rem;
+}
+
+.local-dashboard .dataTables_wrapper .dataTables_length,
+.local-dashboard .dataTables_wrapper .dataTables_filter {
+    margin-bottom: 0.65rem;
+    font-size: 0.85rem;
+    color: #475569;
+}
+
+.local-dashboard .dataTables_wrapper .dataTables_info,
+.local-dashboard .dataTables_wrapper .dataTables_paginate {
+    font-size: 0.85rem;
+    color: #475569;
+    margin-top: 0.65rem;
+}
+
 .local-dashboard .ld-table {
     border-radius: 10px;
     overflow: hidden;
     border: 1px solid var(--ld-border);
+}
+
+.local-dashboard .dataTables_wrapper .ld-table {
+    width: 100% !important;
+    margin-bottom: 0;
 }
 
 .local-dashboard .ld-table thead th {
