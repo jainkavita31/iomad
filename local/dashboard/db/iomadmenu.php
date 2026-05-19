@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Menu entries for local_dashboard.
+ * IOMAD side navigation menu entries for local_dashboard.
  *
  * @package   local_dashboard
  * @copyright 2026
@@ -23,15 +23,18 @@
  */
 
 /**
- * Define menu items.
+ * Define the IOMAD menu items for the exam dashboard.
+ *
+ * Shown in the IOMAD company admin block (Reports tab) only when the user has
+ * {@see local/dashboard:view} in the current company context.
  *
  * @return array
  */
 function local_dashboard_menu(): array {
     return [
-        'dashboard' => [
+        'examdashboard' => [
             'category' => 'Reports',
-            'tab' => 1,
+            'tab' => 8,
             'name' => get_string('pluginname', 'local_dashboard'),
             'url' => '/local/dashboard/index.php',
             'cap' => 'local/dashboard:view',

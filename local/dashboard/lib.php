@@ -277,7 +277,7 @@ function local_dashboard_bootstrap_report(): ?stdClass {
         } catch (\Exception $e) {
             continue;
         }
-        if (has_capability('local/dashboard:view', $cctx)) {
+        if (local_dashboard_user_has_view_in_company($cid, $cctx)) {
             $companyoptionswithview[$cid] = $cname;
         }
     }
@@ -961,7 +961,7 @@ function local_dashboard_first_company_with_dashboard_view(): int {
         } catch (\Exception $e) {
             continue;
         }
-        if (has_capability('local/dashboard:view', $ctx)) {
+        if (local_dashboard_user_has_view_in_company($cid, $ctx)) {
             $candidates[] = $cid;
         }
     }
@@ -978,58 +978,93 @@ function local_dashboard_first_company_with_dashboard_view(): int {
 }
 
 /**
- * Extend global navigation with Dashboard link when user can access it.
+ * Whether the user has local/dashboard:view in a specific company context.
+ *
+ * @param int $companyid
+ * @param \context|null $companycontext Optional pre-loaded company context.
+ * @return bool
+ */
+function local_dashboard_user_has_view_in_company(int $companyid, ?\context $companycontext = null): bool {
+    if ($companyid < 1) {
+        return false;
+    }
+    if ($companycontext === null) {
+        try {
+            $companycontext = \core\context\company::instance($companyid);
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+    if (class_exists('iomad')) {
+        return iomad::has_capability('local/dashboard:view', $companycontext, $companyid);
+    }
+    return has_capability('local/dashboard:view', $companycontext);
+}
+
+/**
+ * Whether the current user may view the exam dashboard in any company.
+ *
+ * @return bool
+ */
+function local_dashboard_user_can_view(): bool {
+    if (!isloggedin() || isguestuser()) {
+        return false;
+    }
+    return local_dashboard_first_company_with_dashboard_view() > 0;
+}
+
+/**
+ * Extend the main navigation drawer with the Exam Dashboard link.
+ *
+ * The link is only added when the current user holds {@see local/dashboard:view}
+ * in at least one company they belong to (or globally for site admins).
  *
  * @param global_navigation $nav
  * @return void
  */
 function local_dashboard_extend_navigation(global_navigation $nav): void {
-    global $DB, $SESSION, $USER, $PAGE;
+    global $CFG;
 
-    if (!isloggedin() || isguestuser()) {
+    if (!local_dashboard_user_can_view()) {
         return;
     }
 
-    $companyid = local_dashboard_first_company_with_dashboard_view();
-    if (!$companyid) {
-        return;
-    }
-
-    $url = new moodle_url('/local/dashboard/index.php');
     $label = get_string('pluginname', 'local_dashboard');
+    $url = '/local/dashboard/index.php';
 
-    $homenode = $nav->find('home', null);
-    if (!$homenode) {
-        $homenode = $PAGE->navigation->add(
-            get_string('home'),
-            new moodle_url('/index.php'),
-            navigation_node::TYPE_ROOTNODE
-        );
-        $homenode->force_open();
+    // IOMAD / Boost primary navigation drawer reads $CFG->custommenuitems (see core\navigation\output\primary).
+    if (!isset($CFG->dbunmodifiedcustommenuitems)) {
+        $CFG->dbunmodifiedcustommenuitems = $CFG->custommenuitems ?? '';
+    }
+    if (strpos($CFG->custommenuitems ?? '', $url) === false) {
+        $CFG->custommenuitems = rtrim($CFG->custommenuitems ?? '') . "\n{$label}|{$url}\n";
     }
 
-    $existing = $homenode->find('local_dashboard', navigation_node::TYPE_CUSTOM);
-    if (!$existing) {
-        $homenode->add($label, $url, navigation_node::TYPE_CUSTOM, null, 'local_dashboard');
+    if (!$nav->find('local_dashboard', navigation_node::TYPE_CUSTOM)) {
+        $node = $nav->add(
+            $label,
+            new moodle_url($url),
+            navigation_node::TYPE_CUSTOM,
+            null,
+            'local_dashboard',
+            new pix_icon('i/report', '')
+        );
+        if ($node) {
+            $node->showinflatnavigation = true;
+            $node->mainnavonly = true;
+        }
     }
 }
 
 /**
- * Extend settings navigation with Dashboard shortcut.
+ * Extend the settings navigation with the Exam Dashboard shortcut for capable users.
  *
  * @param settings_navigation $settingsnav
  * @param context $context
  * @return void
  */
 function local_dashboard_extend_settings_navigation(settings_navigation $settingsnav, context $context): void {
-    global $DB, $SESSION, $USER;
-
-    if (!isloggedin() || isguestuser()) {
-        return;
-    }
-
-    $companyid = local_dashboard_first_company_with_dashboard_view();
-    if (!$companyid) {
+    if (!local_dashboard_user_can_view()) {
         return;
     }
 
@@ -1038,7 +1073,8 @@ function local_dashboard_extend_settings_navigation(settings_navigation $setting
         new moodle_url('/local/dashboard/index.php'),
         navigation_node::TYPE_CUSTOM,
         null,
-        'local_dashboard_settings'
+        'local_dashboard_settings',
+        new pix_icon('i/report', '')
     );
     $settingsnav->add_node($node);
 }
