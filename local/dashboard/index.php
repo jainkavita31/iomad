@@ -99,6 +99,8 @@ if (!isset($zerorisk)) {
     $zerorisk = 0;
 }
 
+$statuscounts = local_dashboard_normalize_statuscounts($statuscounts ?? null);
+
 // CTA: prefer selected assessment course; fallback to first company course with manageactivities.
 $companycourseids = $DB->get_fieldset_sql(
     "SELECT cc.courseid
@@ -467,9 +469,11 @@ $maxintegrity = max($statuscounts) ?: 1;
 $integritydots = [
     'tabswitch' => 'ld-integrity-dot--red',
     'facemismatch' => 'ld-integrity-dot--orange',
-    'absencedetected' => 'ld-integrity-dot--amber',
+    'nofacedetected' => 'ld-integrity-dot--amber',
+    'eyesnotfocused' => 'ld-integrity-dot--gold',
     'multiplepeople' => 'ld-integrity-dot--blue',
-    'otheranomalies' => 'ld-integrity-dot--navy',
+    'objectsdetected' => 'ld-integrity-dot--violet',
+    'otheralerts' => 'ld-integrity-dot--navy',
 ];
 echo html_writer::start_div('ld-integrity-rows');
 foreach ($statuscounts as $key => $value) {

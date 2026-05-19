@@ -81,12 +81,13 @@ If review log is enabled, pending buckets exclude attempts already logged as rev
 
 ## Assessment health overview
 
-The **Assessment health overview** panel lists one card per proctored quiz in scope. Data is built by `local_dashboard_fetch_assessment_stats()` in `local/dashboard/lib.php` (same helper used for the cached index payload and the full **Assessment health — all assessments** page at `assessments.php`).
+The **Assessment health overview** panel lists one card per proctored quiz in scope that has at least one attempt in the selected time range. Data is built by `local_dashboard_fetch_assessment_stats()` in `local/dashboard/lib.php` (same helper used for the cached index payload and the full **Assessment health — all assessments** page at `assessments.php`).
 
 ### Which assessments appear
 
 - Quizzes in courses linked to the selected organisation (`company_course`)
 - Proctoring enabled on the quiz (`quizaccess_quizproctoring.enableproctoring = 1`)
+- **At least one** non-preview attempt with `qa.timestart` in the selected time range; quizzes with **zero** attempts in that range are omitted from the widget and the assessments table
 - On the main dashboard, the assessment dropdown filter applies (`quizid` limits to one quiz when set)
 - **View all assessments** always opens `assessments.php` with **all** proctored quizzes for the company (assessment filter is not applied on that page; only organisation and time range apply)
 

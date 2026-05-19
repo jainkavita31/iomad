@@ -632,7 +632,9 @@
 .local-dashboard .ld-integrity-dot--red { background: #ef4444; }
 .local-dashboard .ld-integrity-dot--orange { background: #f97316; }
 .local-dashboard .ld-integrity-dot--amber { background: #d97706; }
+.local-dashboard .ld-integrity-dot--gold { background: #ca8a04; }
 .local-dashboard .ld-integrity-dot--blue { background: #3b82f6; }
+.local-dashboard .ld-integrity-dot--violet { background: #7c3aed; }
 .local-dashboard .ld-integrity-dot--navy { background: #1e3a8a; }
 
 .local-dashboard .ld-integrity-label {

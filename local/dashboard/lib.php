@@ -71,6 +71,51 @@ function local_dashboard_section_icon_svg(string $variant): string {
 }
 
 /**
+ * Normalize integrity status bucket counts for the index UI (handles legacy cached payloads).
+ *
+ * @param mixed $raw From index snapshot payload (array, stdClass, or missing).
+ * @return array<string,int> Keys in display order.
+ */
+function local_dashboard_normalize_statuscounts($raw): array {
+    $keys = [
+        'tabswitch',
+        'facemismatch',
+        'nofacedetected',
+        'eyesnotfocused',
+        'multiplepeople',
+        'objectsdetected',
+        'otheralerts',
+    ];
+    $out = array_fill_keys($keys, 0);
+    if ($raw === null || $raw === false) {
+        return $out;
+    }
+    if (is_object($raw)) {
+        $raw = (array) $raw;
+    }
+    if (!is_array($raw)) {
+        return $out;
+    }
+    if (array_key_exists('otheralerts', $raw)) {
+        foreach ($keys as $k) {
+            $out[$k] = (int) ($raw[$k] ?? 0);
+        }
+        return $out;
+    }
+    if (array_key_exists('otheranomalies', $raw) || array_key_exists('absencedetected', $raw)) {
+        $out['tabswitch'] = (int) ($raw['tabswitch'] ?? 0);
+        $out['facemismatch'] = (int) ($raw['facemismatch'] ?? 0);
+        $out['multiplepeople'] = (int) ($raw['multiplepeople'] ?? 0);
+        $out['otheralerts'] = (int) ($raw['otheranomalies'] ?? 0) + (int) ($raw['absencedetected'] ?? 0);
+        return $out;
+    }
+    foreach ($keys as $k) {
+        $out[$k] = (int) ($raw[$k] ?? 0);
+    }
+    return $out;
+}
+
+/**
  * Small filled icon for recommended action rows (reference cards).
  *
  * @param string $kind shield|alert|check|file|chart
@@ -762,7 +807,7 @@ function local_dashboard_fetch_ranked_scores_rows(
  * @param int $fromtime Unix timestamp lower bound for attempts.
  * @param string $quizsql Fragment e.g. " AND q.id = :quizid " or empty.
  * @param array $baseparams Params including companyid, fromtime, optional quizid.
- * @return stdClass[] List of row objects for cards/tables.
+ * @return stdClass[] List of row objects for cards/tables (quizzes with no attempts in range are omitted).
  */
 function local_dashboard_fetch_assessment_stats(
     int $companyid,
@@ -792,16 +837,20 @@ function local_dashboard_fetch_assessment_stats(
             'fromtime' => $fromtime,
         ];
 
-        $users = (int) $DB->count_records_sql(
-            "SELECT COUNT(DISTINCT qa.userid)
+        $attempts = (int) $DB->count_records_sql(
+            "SELECT COUNT(qa.id)
                FROM {quiz_attempts} qa
               WHERE qa.quiz = :quizid
                 AND qa.preview = 0
                 AND qa.timestart >= :fromtime",
             $params
         );
-        $attempts = (int) $DB->count_records_sql(
-            "SELECT COUNT(qa.id)
+        if ($attempts < 1) {
+            continue;
+        }
+
+        $users = (int) $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT qa.userid)
                FROM {quiz_attempts} qa
               WHERE qa.quiz = :quizid
                 AND qa.preview = 0

@@ -61,9 +61,11 @@ $string['totalalerts'] = 'Total alerts';
 $string['avgalertspercandidate'] = 'Avg/candidate';
 $string['tabswitch'] = 'Tab switch / app change';
 $string['facemismatch'] = 'Face mismatch';
-$string['absencedetected'] = 'Absence detected';
+$string['nofacedetected'] = 'No face detected';
+$string['eyesnotfocused'] = 'Eyes not focused';
 $string['multiplepeople'] = 'Multiple people';
-$string['otheranomalies'] = 'Other anomalies';
+$string['objectsdetected'] = 'Objects detected';
+$string['otheralerts'] = 'Other alerts';
 
 $string['reviewpipeline'] = 'Review pipeline';
 $string['totalsessions'] = 'Total sessions';

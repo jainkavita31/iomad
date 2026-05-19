@@ -168,9 +168,11 @@ final class index_snapshot {
         $statuscounts = [
             'tabswitch' => 0,
             'facemismatch' => 0,
-            'absencedetected' => 0,
+            'nofacedetected' => 0,
+            'eyesnotfocused' => 0,
             'multiplepeople' => 0,
-            'otheranomalies' => 0,
+            'objectsdetected' => 0,
+            'otheralerts' => 0,
         ];
         $statusrecords = $DB->get_records_sql(
             "SELECT pd.status, COUNT(pd.id) AS cnt
@@ -194,14 +196,18 @@ final class index_snapshot {
             $count = (int) $statusrecord->cnt;
             if (in_array($status, ['minimizedetected', 'appchange', 'tabswitch'], true)) {
                 $statuscounts['tabswitch'] += $count;
-            } else if (in_array($status, ['nomatchfound', 'facemismatch', 'profilemismatch'], true)) {
+            } else if (in_array($status, ['nomatchfound', 'facemismatch', 'profilemismatch', 'facesnotmatched'], true)) {
                 $statuscounts['facemismatch'] += $count;
-            } else if (in_array($status, ['nofacedetected', 'eyesnotopened', 'nocameradetected', 'nocameradisabled'], true)) {
-                $statuscounts['absencedetected'] += $count;
+            } else if ($status === 'nofacedetected') {
+                $statuscounts['nofacedetected'] += $count;
+            } else if ($status === 'eyesnotopened') {
+                $statuscounts['eyesnotfocused'] += $count;
             } else if ($status === 'multifacesdetected') {
                 $statuscounts['multiplepeople'] += $count;
+            } else if (in_array($status, ['objectsdetected', 'objectdetected'], true)) {
+                $statuscounts['objectsdetected'] += $count;
             } else {
-                $statuscounts['otheranomalies'] += $count;
+                $statuscounts['otheralerts'] += $count;
             }
         }
 
