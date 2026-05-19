@@ -48,6 +48,135 @@ final class index_snapshot {
     ];
 
     /**
+     * Payload keys that depend on the proctor review log (pending vs reviewed).
+     *
+     * These are recomputed on the next dashboard load after a review without rebuilding the full cache.
+     */
+    public const REVIEW_SENSITIVE_KEYS = [
+        'highriskpending',
+        'mediumriskpending',
+        'lowriskpending',
+        'zerorisk',
+        'reviewbacklog',
+        'priorityqueue',
+    ];
+
+    /**
+     * Review pipeline counts + priority queue excerpt (same SQL as full index compute).
+     *
+     * @param \stdClass $r Bootstrap (companyid, baseparams, quizsql, fromtime).
+     * @return \stdClass Object with REVIEW_SENSITIVE_KEYS properties.
+     */
+    public static function compute_review_sensitive_slice(\stdClass $r): \stdClass {
+        global $DB;
+
+        $baseparams = $r->baseparams;
+        $quizsql = $r->quizsql;
+        $ldpend = \local_dashboard_review_log_pending_only_sql_parts();
+
+        $attemptriskrows = $DB->get_records_sql(
+            "SELECT qmp.attemptid,
+                    MAX(qmp.isautosubmit) AS isautosubmit,
+                    SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) AS warningcount
+               FROM {quizaccess_main_proctor} qmp
+               JOIN {quiz_attempts} qa ON qa.id = qmp.attemptid
+               JOIN {quiz} q ON q.id = qa.quiz
+               JOIN {company_course} cc ON cc.courseid = q.course
+               JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
+               LEFT JOIN {quizaccess_proctor_data} pd ON pd.attemptid = qmp.attemptid
+                                                  AND pd.quizid = q.id
+                    {$ldpend['join']}
+              WHERE cc.companyid = :companyid
+                AND qp.enableproctoring = 1
+                AND qa.preview = 0
+                AND qa.timestart >= :fromtime
+                AND qmp.deleted = 0
+                AND qmp.image_status = 'M'
+                {$ldpend['where']}
+                $quizsql
+           GROUP BY qmp.attemptid",
+            $baseparams
+        );
+
+        $highriskpending = 0;
+        $mediumriskpending = 0;
+        $lowriskpending = 0;
+        $zerorisk = 0;
+        foreach ($attemptriskrows as $attemptrow) {
+            $warningcount = (int) $attemptrow->warningcount;
+            $isautosubmit = (int) $attemptrow->isautosubmit;
+            if ($warningcount === 0) {
+                $zerorisk++;
+            } else if ($isautosubmit || $warningcount >= 6) {
+                $highriskpending++;
+            } else if ($warningcount >= 3) {
+                $mediumriskpending++;
+            } else if ($warningcount >= 1) {
+                $lowriskpending++;
+            }
+        }
+        $reviewbacklog = $lowriskpending + $mediumriskpending + $highriskpending;
+
+        $queueparams = $baseparams;
+        $priorityqueue = $DB->get_records_sql(
+            "SELECT qmp.attemptid,
+                    u.id AS userid,
+                    u.firstname,
+                    u.lastname,
+                    q.id AS quizid,
+                    q.name AS quizname,
+                    SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) AS alertcount,
+                    MAX(qmp.isautosubmit) AS isautosubmit
+               FROM {quizaccess_main_proctor} qmp
+               JOIN {quiz_attempts} qa ON qa.id = qmp.attemptid
+               JOIN {user} u ON u.id = qa.userid
+               JOIN {quiz} q ON q.id = qa.quiz
+               JOIN {company_course} cc ON cc.courseid = q.course
+               JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
+               LEFT JOIN {quizaccess_proctor_data} pd ON pd.attemptid = qmp.attemptid
+                                                  AND pd.quizid = q.id
+                    {$ldpend['join']}
+              WHERE cc.companyid = :companyid
+                AND qp.enableproctoring = 1
+                AND qa.preview = 0
+                AND qa.timestart >= :fromtime
+                AND qmp.deleted = 0
+                AND qmp.image_status = 'M'
+                {$ldpend['where']}
+                $quizsql
+           GROUP BY qmp.attemptid, u.id, u.firstname, u.lastname, q.id, q.name
+          HAVING SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) > 0
+           ORDER BY alertcount DESC, isautosubmit DESC",
+            $queueparams,
+            0,
+            10
+        );
+
+        $out = new \stdClass();
+        $out->highriskpending = $highriskpending;
+        $out->mediumriskpending = $mediumriskpending;
+        $out->lowriskpending = $lowriskpending;
+        $out->zerorisk = $zerorisk;
+        $out->reviewbacklog = $reviewbacklog;
+        $out->priorityqueue = $priorityqueue;
+
+        return $out;
+    }
+
+    /**
+     * Patch a cached index payload with live review-sensitive metrics (then caller may store).
+     *
+     * @param \stdClass $payload Mutated in place.
+     * @param \stdClass $r Same bootstrap as {@see self::compute_data()}.
+     */
+    public static function apply_review_metrics_to_payload(\stdClass $payload, \stdClass $r): void {
+        $slice = self::compute_review_sensitive_slice($r);
+        foreach (self::REVIEW_SENSITIVE_KEYS as $key) {
+            $payload->$key = $slice->$key;
+        }
+    }
+
+    /**
      * Build the same data structure that index.php uses for KPIs, pipeline, queue, etc.
      *
      * @param \stdClass $r Bootstrap object (needs companyid, baseparams, quizsql, fromtime consistent).
@@ -147,8 +276,6 @@ final class index_snapshot {
             $baseparams
         );
 
-        $ldpend = \local_dashboard_review_log_pending_only_sql_parts();
-
         $avgscorerecord = $DB->get_record_sql(
             "SELECT AVG((qa.sumgrades * 100.0) / NULLIF(q.sumgrades, 0)) AS avgscore
                FROM {quiz_attempts} qa
@@ -211,49 +338,13 @@ final class index_snapshot {
             }
         }
 
-        $attemptriskrows = $DB->get_records_sql(
-            "SELECT qmp.attemptid,
-                    MAX(qmp.isautosubmit) AS isautosubmit,
-                    SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) AS warningcount
-               FROM {quizaccess_main_proctor} qmp
-               JOIN {quiz_attempts} qa ON qa.id = qmp.attemptid
-               JOIN {quiz} q ON q.id = qa.quiz
-               JOIN {company_course} cc ON cc.courseid = q.course
-               JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
-               LEFT JOIN {quizaccess_proctor_data} pd ON pd.attemptid = qmp.attemptid
-                                                  AND pd.quizid = q.id
-                    {$ldpend['join']}
-              WHERE cc.companyid = :companyid
-                AND qp.enableproctoring = 1
-                AND qa.preview = 0
-                AND qa.timestart >= :fromtime
-                AND qmp.deleted = 0
-                AND qmp.image_status = 'M'
-                {$ldpend['where']}
-                $quizsql
-           GROUP BY qmp.attemptid",
-            $baseparams
-        );
-
-        $highriskpending = 0;
-        $mediumriskpending = 0;
-        $lowriskpending = 0;
-        $zerorisk = 0;
-        foreach ($attemptriskrows as $attemptrow) {
-            $warningcount = (int) $attemptrow->warningcount;
-            $isautosubmit = (int) $attemptrow->isautosubmit;
-            if ($warningcount === 0) {
-                $zerorisk++;
-            } else if ($isautosubmit || $warningcount >= 6) {
-                $highriskpending++;
-            } else if ($warningcount >= 3) {
-                $mediumriskpending++;
-            } else if ($warningcount >= 1) {
-                $lowriskpending++;
-            }
-        }
-        // Backlog = all pending sessions that still need review (low + medium + high).
-        $reviewbacklog = $lowriskpending + $mediumriskpending + $highriskpending;
+        $reviewsensitive = self::compute_review_sensitive_slice($r);
+        $highriskpending = $reviewsensitive->highriskpending;
+        $mediumriskpending = $reviewsensitive->mediumriskpending;
+        $lowriskpending = $reviewsensitive->lowriskpending;
+        $zerorisk = $reviewsensitive->zerorisk;
+        $reviewbacklog = $reviewsensitive->reviewbacklog;
+        $priorityqueue = $reviewsensitive->priorityqueue;
 
         $assessmentstats = \local_dashboard_fetch_assessment_stats($companyid, (int) $r->fromtime, $quizsql, $baseparams);
 
@@ -326,41 +417,6 @@ final class index_snapshot {
         $passrate = !empty($scorestats->totalcount) ? (((float) $scorestats->passcount / (float) $scorestats->totalcount) * 100.0) : 0.0;
 
         $topperformers = \local_dashboard_fetch_ranked_scores_rows($quizsql, $baseparams, 0, 10);
-
-        $queueparams = $baseparams;
-        $priorityqueue = $DB->get_records_sql(
-            "SELECT qmp.attemptid,
-                    u.id AS userid,
-                    u.firstname,
-                    u.lastname,
-                    q.id AS quizid,
-                    q.name AS quizname,
-                    SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) AS alertcount,
-                    MAX(qmp.isautosubmit) AS isautosubmit
-               FROM {quizaccess_main_proctor} qmp
-               JOIN {quiz_attempts} qa ON qa.id = qmp.attemptid
-               JOIN {user} u ON u.id = qa.userid
-               JOIN {quiz} q ON q.id = qa.quiz
-               JOIN {company_course} cc ON cc.courseid = q.course
-               JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
-               LEFT JOIN {quizaccess_proctor_data} pd ON pd.attemptid = qmp.attemptid
-                                                  AND pd.quizid = q.id
-                    {$ldpend['join']}
-              WHERE cc.companyid = :companyid
-                AND qp.enableproctoring = 1
-                AND qa.preview = 0
-                AND qa.timestart >= :fromtime
-                AND qmp.deleted = 0
-                AND qmp.image_status = 'M'
-                {$ldpend['where']}
-                $quizsql
-           GROUP BY qmp.attemptid, u.id, u.firstname, u.lastname, q.id, q.name
-          HAVING SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) > 0
-           ORDER BY alertcount DESC, isautosubmit DESC",
-            $queueparams,
-            0,
-            10
-        );
 
         $out = new \stdClass();
         foreach (self::PAYLOAD_KEYS as $key) {

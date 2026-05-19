@@ -153,6 +153,7 @@ Assessment health is included in the index cache payload (`assessmentstats`) whe
 - Dashboard index data is cached for all-assessment view
 - Scheduled task refreshes cache every 12 hours
 - "Sync now" triggers immediate refresh for current organisation
+- After a manager opens **Review** (via `proctor_review_entry.php`), the next load of the exam dashboard for that organisation still uses the cached snapshot for bulk metrics, but **recomputes and saves** review-sensitive fields only: review pipeline counts, backlog, and the priority-queue excerpt (`index_snapshot::compute_review_sensitive_slice()`), so backlog/queue update without a full cache rebuild
 
 ## Source of truth in code
 

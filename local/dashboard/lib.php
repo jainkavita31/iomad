@@ -221,7 +221,8 @@ function local_dashboard_proctor_reviewattempts_link_html(
         return $label;
     }
     $modctx = context_module::instance($cm->id);
-    $allowlink = has_capability('quizaccess/quizproctoring:quizproctoringoverallreport', $modctx);
+    $allowlink = has_capability('quizaccess/quizproctoring:quizproctoringoverallreport', $modctx)
+        || local_dashboard_user_is_site_exam_admin();
     if (!$allowlink && $dashboardcompanyid !== null && $dashboardcompanyid > 0
             && $DB->record_exists('company_course', [
                 'companyid' => $dashboardcompanyid,
@@ -279,6 +280,28 @@ function local_dashboard_quizview_link_html(int $quizid, string $quizname, array
     $url = new moodle_url('/mod/quiz/view.php', ['id' => $cm->id]);
     $attrs = array_merge(['class' => 'ld-quiz-name-link'], $linkattrs);
     return html_writer::link($url, $showname, $attrs);
+}
+
+/**
+ * Whether the current user is a site administrator who may use the exam dashboard for any company
+ * without company {@see local/dashboard:view} (managers still need that capability).
+ *
+ * @return bool
+ */
+function local_dashboard_user_is_site_exam_admin(): bool {
+    return has_capability('moodle/site:config', context_system::instance());
+}
+
+/**
+ * Require exam dashboard access: company managers need local/dashboard:view; site admins bypass.
+ *
+ * @param int $companyid
+ * @param \context $companycontext Company context instance.
+ */
+function local_dashboard_require_dashboard_view(int $companyid, \context $companycontext): void {
+    if (!local_dashboard_user_has_view_in_company($companyid, $companycontext)) {
+        require_capability('local/dashboard:view', $companycontext);
+    }
 }
 
 /**
@@ -353,7 +376,7 @@ function local_dashboard_bootstrap_report(): ?stdClass {
     }
 
     $companycontext = \core\context\company::instance($companyid);
-    require_capability('local/dashboard:view', $companycontext);
+    local_dashboard_require_dashboard_view($companyid, $companycontext);
 
     $manager = $DB->get_manager();
     if (!$manager->table_exists('quizaccess_quizproctoring') ||
@@ -571,6 +594,55 @@ function local_dashboard_review_log_pending_only_sql_parts(): array {
 }
 
 /**
+ * Mark organisations linked to this quiz so the next exam dashboard load (cached index)
+ * can refresh review-sensitive metrics without a full snapshot rebuild.
+ *
+ * @param int $quizid Quiz instance id.
+ */
+function local_dashboard_mark_index_review_merge_pending_for_quiz(int $quizid): void {
+    global $SESSION, $DB;
+
+    if (!local_dashboard_review_log_table_ready()) {
+        return;
+    }
+    $courseid = (int) $DB->get_field('quiz', 'course', ['id' => $quizid], IGNORE_MISSING);
+    if ($courseid < 1) {
+        return;
+    }
+    $companyids = $DB->get_fieldset_sql(
+        "SELECT DISTINCT companyid FROM {company_course} WHERE courseid = ?",
+        [$courseid]
+    );
+    if (!$companyids) {
+        return;
+    }
+    if (!isset($SESSION->local_dashboard_review_merge) || !is_array($SESSION->local_dashboard_review_merge)) {
+        $SESSION->local_dashboard_review_merge = [];
+    }
+    foreach ($companyids as $cid) {
+        $SESSION->local_dashboard_review_merge[(int) $cid] = true;
+    }
+}
+
+/**
+ * True once per company after a review was logged; clears the session flag for that company.
+ *
+ * @param int $companyid Organisation id for the dashboard context.
+ */
+function local_dashboard_consume_pending_index_review_merge(int $companyid): bool {
+    global $SESSION;
+
+    if (empty($SESSION->local_dashboard_review_merge) || !is_array($SESSION->local_dashboard_review_merge)) {
+        return false;
+    }
+    if (empty($SESSION->local_dashboard_review_merge[$companyid])) {
+        return false;
+    }
+    unset($SESSION->local_dashboard_review_merge[$companyid]);
+    return true;
+}
+
+/**
  * Log that the current user opened the ProctorLink review page for a candidate attempt.
  *
  * @param int $candidateuserid Student user id.
@@ -596,6 +668,7 @@ function local_dashboard_note_proctor_review_access(int $candidateuserid, int $c
         $record->attemptid = $attemptid;
     }
     $DB->insert_record('local_dashboard_proctor_review_log', $record);
+    local_dashboard_mark_index_review_merge_pending_for_quiz((int) $quizid);
 }
 
 /**
@@ -1027,7 +1100,7 @@ function local_dashboard_first_company_with_dashboard_view(): int {
 }
 
 /**
- * Whether the user has local/dashboard:view in a specific company context.
+ * Whether the user may view the exam dashboard for this company (manager role) or as site admin.
  *
  * @param int $companyid
  * @param \context|null $companycontext Optional pre-loaded company context.
@@ -1036,6 +1109,9 @@ function local_dashboard_first_company_with_dashboard_view(): int {
 function local_dashboard_user_has_view_in_company(int $companyid, ?\context $companycontext = null): bool {
     if ($companyid < 1) {
         return false;
+    }
+    if (local_dashboard_user_is_site_exam_admin()) {
+        return true;
     }
     if ($companycontext === null) {
         try {
@@ -1065,8 +1141,8 @@ function local_dashboard_user_can_view(): bool {
 /**
  * Extend the main navigation drawer with the Exam Dashboard link.
  *
- * The link is only added when the current user holds {@see local/dashboard:view}
- * in at least one company they belong to (or globally for site admins).
+ * The link is added when the user may view the exam dashboard: {@see local/dashboard:view}
+ * in at least one company, or {@see moodle/site:config} at system level (site administrators).
  *
  * @param global_navigation $nav
  * @return void

@@ -28,7 +28,7 @@ if ($r === null) {
 require_sesskey();
 
 $companycontext = $r->companycontext;
-require_capability('local/dashboard:view', $companycontext);
+local_dashboard_require_dashboard_view((int) $r->companyid, $companycontext);
 
 \local_dashboard\local\index_snapshot::refresh_company((int) $r->companyid);
 

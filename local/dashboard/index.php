@@ -63,6 +63,15 @@ if ($quizid === 0 && $tableexists) {
     }
 }
 
+if ($indexfromcache && $quizid === 0 && local_dashboard_review_log_table_ready()
+        && local_dashboard_consume_pending_index_review_merge((int) $companyid)) {
+    index_snapshot::apply_review_metrics_to_payload($payload, $r);
+    foreach (index_snapshot::PAYLOAD_KEYS as $prop) {
+        ${$prop} = property_exists($payload, $prop) ? $payload->$prop : 0;
+    }
+    index_snapshot::store($companyid, $timerange, 0, $payload);
+}
+
 if (!$indexfromcache) {
     $payload = index_snapshot::compute_data($r);
     foreach (index_snapshot::PAYLOAD_KEYS as $prop) {

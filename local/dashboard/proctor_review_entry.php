@@ -41,7 +41,8 @@ foreach ($companyids as $cid) {
         continue;
     }
 }
-if (!$canreport && !$canviewdashboard) {
+$canadmin = local_dashboard_user_is_site_exam_admin();
+if (!$canreport && !$canviewdashboard && !$canadmin) {
     require_capability('quizaccess/quizproctoring:quizproctoringoverallreport', $modctx);
 }
 
