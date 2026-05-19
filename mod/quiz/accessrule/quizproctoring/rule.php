@@ -794,15 +794,14 @@ class quizaccess_quizproctoring extends quizaccess_quizproctoring_rule_base {
      */
     public static function get_first_trigger_role_id() {
         global $DB;
-        $roleid = $DB->get_field_sql(
-            "SELECT id
-               FROM {role}
-              WHERE archetype IS NULL OR archetype <> :guest
-           ORDER BY sortorder ASC",
-            ['guest' => 'guest'],
-            IGNORE_MISSING
+        $role = $DB->get_record_select(
+            'role',
+            "archetype != 'guest' OR archetype IS NULL",
+            null,
+            'sortorder ASC',
+            'id'
         );
-        return $roleid ? (int) $roleid : 0;
+        return $role ? (int)$role->id : 0;
     }
 
     /**
