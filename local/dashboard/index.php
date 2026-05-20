@@ -377,14 +377,9 @@ $assessmenthealthwidget = local_dashboard_assessment_health_widget_cards(
     is_array($assessmentstats) ? $assessmentstats : []
 );
 $assessmenthealthcards = $assessmenthealthwidget['cards'];
-$assessmenthealthtotal = $assessmenthealthwidget['total'];
 echo html_writer::start_div('ld-assessment-cards');
 foreach ($assessmenthealthcards as $row) {
-    $cardextra = !empty($row->unusual) ? ' ld-assessment-card--unusual' : '';
-    echo html_writer::start_div('ld-assessment-card' . $cardextra);
-    if (!empty($row->unusual)) {
-        echo html_writer::span(get_string('unusualactivity', 'local_dashboard'), 'ld-assessment-badge');
-    }
+    echo html_writer::start_div('ld-assessment-card');
     echo html_writer::div(
         local_dashboard_quizview_link_html((int) $row->quizid, (string) $row->quiznameraw),
         'ld-assessment-title'
@@ -427,14 +422,6 @@ foreach ($assessmenthealthcards as $row) {
 }
 if (empty($assessmenthealthcards)) {
     echo html_writer::div(get_string('nofiltereddata', 'local_dashboard'));
-} else if ($assessmenthealthtotal > local_dashboard_assessment_health_widget_max()) {
-    echo html_writer::div(
-        get_string('assessmenthealthshowing', 'local_dashboard', (object) [
-            'shown' => count($assessmenthealthcards),
-            'total' => $assessmenthealthtotal,
-        ]),
-        'ld-assessment-health-more'
-    );
 }
 echo html_writer::end_div();
 echo html_writer::end_div();

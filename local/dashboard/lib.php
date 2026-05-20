@@ -965,7 +965,7 @@ function local_dashboard_action_export_pack(string $view, \stdClass $r): ?array 
     });
     if ($view === 'spike') {
         $stats = array_values(array_filter($stats, static function ($row) {
-            return !empty($row->unusual) || (int) $row->alerts >= 3;
+            return (int) $row->alerts >= 3;
         }));
     }
     $headers = [
@@ -981,9 +981,6 @@ function local_dashboard_action_export_pack(string $view, \stdClass $r): ?array 
     $rank = 1;
     foreach ($stats as $row) {
         $quizlabel = format_string($row->quiznameraw);
-        if (!empty($row->unusual)) {
-            $quizlabel .= ' (' . get_string('unusualactivity', 'local_dashboard') . ')';
-        }
         $rows[] = [
             (string) $rank++,
             local_dashboard_pdf_plain($quizlabel),
@@ -1503,7 +1500,6 @@ function local_dashboard_fetch_assessment_stats(
         $orangepct = min($orangepct, max(0.0, 100.0 - $highriskpct));
         $clearedpct = max(0.0, 100.0 - $highriskpct - $orangepct);
         $completedpct = $at > 0 ? (($finished / $at) * 100.0) : 0.0;
-        $unusual = ($flaggedunion > 40 || $highriskpct > 12.0);
 
         $assessmentstats[] = (object) [
             'course' => format_string($assessmentrow->coursename),
@@ -1519,7 +1515,6 @@ function local_dashboard_fetch_assessment_stats(
             'clearedpct' => $clearedpct,
             'orangepct' => $orangepct,
             'highriskpct' => $highriskpct,
-            'unusual' => $unusual,
             'score' => !empty($scoreobj->avgscore) ? (float) $scoreobj->avgscore : 0.0,
         ];
     }

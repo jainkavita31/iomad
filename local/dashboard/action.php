@@ -304,7 +304,7 @@ if ($view === 'highrisk') {
     });
     if ($view === 'spike') {
         $stats = array_values(array_filter($stats, static function ($row) {
-            return !empty($row->unusual) || (int) $row->alerts >= 3;
+            return (int) $row->alerts >= 3;
         }));
     }
     echo local_dashboard_action_export_row_html($r, $view, count($stats), 'actionpage_rowcount');
@@ -326,12 +326,9 @@ if ($view === 'highrisk') {
     foreach ($stats as $row) {
         // Rows use quiznameraw + quizid from fetch_assessment_stats.
         $quizcell = local_dashboard_quizview_link_html((int) $row->quizid, (string) $row->quiznameraw);
-        $badges = !empty($row->unusual)
-            ? ' ' . html_writer::span(get_string('unusualactivity', 'local_dashboard'), 'ld-pill ld-pill-stat-pending')
-            : '';
         $rowcells = [
             html_writer::span((string) $rank++, 'ld-rank-box'),
-            $quizcell . $badges,
+            $quizcell,
             $row->course,
             number_format($row->users),
             number_format($row->attempts),

@@ -112,7 +112,7 @@ All attempt-based figures use non-preview attempts with `qa.timestart >= :fromti
 | **Failed / autosubmit** (detail table) | Distinct attempts with `quizaccess_main_proctor.isautosubmit = 1`, `image_status = 'M'`, `deleted = 0` |
 | **Score** (detail table) | Average `(qa.sumgrades × 100 / q.sumgrades)` over finished attempts |
 
-**Flagged union** (used for the Flagged stat and “unusual activity”):
+**Flagged union** (used for the Flagged stat):
 
 Distinct attempts that match **either**:
 
@@ -138,13 +138,6 @@ The bar is a **percentage split across all attempts** in the time range (not the
 Bar colours: green = cleared, orange = warning band, red = high-risk (autosubmit share).
 
 Footer labels: **X% cleared** (left), optional warning % (centre if `orangepct > 0.5`), **X% high-risk** (right).
-
-### Unusual activity badge
-
-A card is marked **Unusual activity** when:
-
-- `flaggedunion > 40`, **or**
-- `highriskpct > 12`
 
 ### Main dashboard vs detail page
 

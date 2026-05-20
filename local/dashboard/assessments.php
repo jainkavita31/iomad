@@ -134,12 +134,6 @@ $table->data = [];
 $rank = 1;
 foreach ($assessmentstats as $row) {
     $quizcell = local_dashboard_quizview_link_html((int) $row->quizid, (string) $row->quiznameraw);
-    if (!empty($row->unusual)) {
-        $quizcell .= ' ' . html_writer::span(
-            get_string('unusualactivity', 'local_dashboard'),
-            'ld-pill ld-pill-stat-pending'
-        );
-    }
     $table->data[] = [
         html_writer::span((string) $rank++, 'ld-rank-box'),
         $quizcell,
