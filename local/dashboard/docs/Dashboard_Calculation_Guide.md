@@ -39,10 +39,10 @@ For proctoring metrics, only quizzes with proctoring enabled are used (`quizacce
   - and (if review log table exists) excludes attempts already logged in `local_dashboard_proctor_review_log` (by `attemptid` when that column exists; otherwise by candidate+quiz)
 
 - **Average score**  
-  Average of `(qa.sumgrades * 100 / q.sumgrades)` for finished attempts (`qa.timefinish > 0`).
+  Average of `(qa.sumgrades * 100 / q.sumgrades)` for finished attempts (`qa.timefinish > 0`). Same attempt set as score distribution when filters match.
 
-- **Pass rate (shown under average score)**  
-  `passcount(score >= 50) / totalcount * 100`.
+- **Pass rate (shown under score distribution)**  
+  `passcount(score >= 50) / totalcount * 100` over **attempts**, not distinct candidates. See [Score_Distribution_Calculation_Guide.md](./Score_Distribution_Calculation_Guide.md).
 
 ## Review pipeline cards
 
@@ -78,6 +78,14 @@ If review log is enabled, pending buckets exclude attempts already logged as rev
 - Ranked by best score percentage
 - Shows top **10** rows on dashboard widget
 - Full list is available on performers detail page
+
+## Score distribution
+
+The **Score distribution** panel counts **finished attempts** (not candidates, not best-score-per-user). Each attempt’s percentage is `(qa.sumgrades × 100 / q.sumgrades)` and is placed into one of six bands (0–40, 41–50, …, 91–100). With **All assessments**, every proctored quiz in every course linked to the organisation contributes; a course with many quizzes adds one distribution entry **per finished attempt per quiz** (reattempts count separately).
+
+Summary under the chart: **average** and **pass rate** (attempts ≥ 50%) from the same set; **median** from a sorted list of those attempt scores.
+
+**Detailed guide with multi-quiz worked examples:** [Score_Distribution_Calculation_Guide.md](./Score_Distribution_Calculation_Guide.md)
 
 ## Assessment health overview
 
