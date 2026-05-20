@@ -894,19 +894,17 @@ function local_dashboard_action_export_pack(string $view, \stdClass $r): ?array 
             get_string('queueassessment', 'local_dashboard'),
             get_string('queuealerts', 'local_dashboard'),
             get_string('queueseverity', 'local_dashboard'),
-            get_string('queuestatus', 'local_dashboard'),
         ];
         $rows = [];
         $rank = 1;
         foreach ($records as $row) {
-            [$severitykey, $statuskey] = local_dashboard_queue_row_status_keys($row);
+            [$severitykey] = local_dashboard_queue_row_status_keys($row);
             $rows[] = [
                 (string) $rank++,
                 local_dashboard_pdf_plain(fullname((object) ['firstname' => $row->firstname, 'lastname' => $row->lastname])),
                 local_dashboard_pdf_plain(format_string($row->quizname)),
                 (string) (int) $row->alertcount,
                 local_dashboard_pdf_plain(get_string($severitykey, 'local_dashboard')),
-                local_dashboard_pdf_plain(get_string($statuskey, 'local_dashboard')),
             ];
         }
         return [

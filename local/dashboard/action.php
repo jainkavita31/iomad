@@ -119,7 +119,7 @@ $queuegroup = " GROUP BY qmp.attemptid, u.id, u.firstname, u.lastname, q.id, q.n
  * @return array table row cells (HTML strings)
  */
 $queuerowcells = function (stdClass $row) use ($companyid): array {
-    [$severitykey, $statuskey] = local_dashboard_queue_row_status_keys($row);
+    [$severitykey] = local_dashboard_queue_row_status_keys($row);
     $alerts = (int) $row->alertcount;
     $reviewlink = local_dashboard_proctor_reviewattempts_link_html(
         (int) $row->userid,
@@ -129,13 +129,11 @@ $queuerowcells = function (stdClass $row) use ($companyid): array {
         (int) $row->attemptid
     );
     $sevpill = local_dashboard_queue_severity_pill_classes($severitykey);
-    $statpill = 'ld-pill ld-pill-stat-' . preg_replace('/^status/', '', $statuskey);
     return [
         fullname((object) ['firstname' => $row->firstname, 'lastname' => $row->lastname]),
         local_dashboard_quizview_link_html((int) $row->quizid, (string) $row->quizname),
         '<span class="ld-td-alerts">' . $alerts . '</span>',
         html_writer::span(get_string($severitykey, 'local_dashboard'), $sevpill),
-        html_writer::span(get_string($statuskey, 'local_dashboard'), $statpill),
         $reviewlink,
     ];
 };
@@ -203,7 +201,6 @@ if ($view === 'highrisk') {
         get_string('queueassessment', 'local_dashboard'),
         get_string('queuealerts', 'local_dashboard'),
         get_string('queueseverity', 'local_dashboard'),
-        get_string('queuestatus', 'local_dashboard'),
         get_string('queuereview', 'local_dashboard'),
     ];
     $table->attributes['class'] = 'generaltable ld-table ld-detail-table';
@@ -226,7 +223,7 @@ if ($view === 'highrisk') {
     local_dashboard_init_datatable('#ld-action-datatable', 50, [
         'order' => [[3, 'desc']],
         'columndefs' => [
-            ['orderable' => false, 'targets' => [0, 6]],
+            ['orderable' => false, 'targets' => [0, 5]],
         ],
     ]);
 
@@ -248,7 +245,6 @@ if ($view === 'highrisk') {
         get_string('queueassessment', 'local_dashboard'),
         get_string('queuealerts', 'local_dashboard'),
         get_string('queueseverity', 'local_dashboard'),
-        get_string('queuestatus', 'local_dashboard'),
         get_string('queuereview', 'local_dashboard'),
     ];
     $table->attributes['class'] = 'generaltable ld-table ld-detail-table';
@@ -271,7 +267,7 @@ if ($view === 'highrisk') {
     local_dashboard_init_datatable('#ld-action-datatable', 50, [
         'order' => [[3, 'desc']],
         'columndefs' => [
-            ['orderable' => false, 'targets' => [0, 6]],
+            ['orderable' => false, 'targets' => [0, 5]],
         ],
     ]);
 
