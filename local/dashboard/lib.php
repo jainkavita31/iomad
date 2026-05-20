@@ -929,15 +929,14 @@ function local_dashboard_action_export_pack(string $view, \stdClass $r): ?array 
             get_string('tableassessment', 'local_dashboard'),
             get_string('tablecourse', 'local_dashboard'),
             get_string('exportcsv_scorepct', 'local_dashboard'),
-            get_string('session', 'local_dashboard'),
+            get_string('tableattempts', 'local_dashboard'),
+            get_string('tablealerts', 'local_dashboard'),
+            get_string('tablefailed', 'local_dashboard'),
         ];
         $rows = [];
         $rank = 1;
         foreach ($records as $row) {
-            $alertcount = (int) $row->alertcount;
-            $sessionlabel = $alertcount > 0
-                ? get_string('statusalertcount', 'local_dashboard', $alertcount)
-                : get_string('statusclean', 'local_dashboard');
+            $failed = (int) ($row->failedflag ?? 0) > 0;
             $rows[] = [
                 (string) $rank++,
                 (string) (int) $row->userid,
@@ -947,7 +946,9 @@ function local_dashboard_action_export_pack(string $view, \stdClass $r): ?array 
                 local_dashboard_pdf_plain(format_string($row->quizname)),
                 local_dashboard_pdf_plain(format_string($row->coursename)),
                 format_float((float) $row->bestscore, 1),
-                local_dashboard_pdf_plain($sessionlabel),
+                number_format((int) ($row->attemptcount ?? 0)),
+                number_format((int) $row->alertcount),
+                local_dashboard_pdf_plain($failed ? get_string('yes') : get_string('no')),
             ];
         }
         return [
@@ -1096,13 +1097,57 @@ function local_dashboard_download_action_csv(string $view, \stdClass $r): void {
 }
 
 /**
+ * ProctorLink overall report URL for a quiz (proctoringreport.php).
+ *
+ * @param int $quizid
+ * @return moodle_url|null
+ */
+function local_dashboard_proctoring_report_url(int $quizid): ?moodle_url {
+    if ($quizid < 1) {
+        return null;
+    }
+    $cm = get_coursemodule_from_instance('quiz', $quizid, 0, false, IGNORE_MISSING);
+    if (!$cm) {
+        return null;
+    }
+    $modctx = context_module::instance($cm->id);
+    if (!has_capability('quizaccess/quizproctoring:quizproctoringoverallreport', $modctx)) {
+        return null;
+    }
+    return new moodle_url('/mod/quiz/accessrule/quizproctoring/proctoringreport.php', [
+        'cmid' => $cm->id,
+        'quizid' => $quizid,
+    ]);
+}
+
+/**
+ * Link to ProctorLink proctoringreport.php for a quiz, or plain label if unavailable.
+ *
+ * @param int $quizid
+ * @return string HTML
+ */
+function local_dashboard_proctoring_report_link_html(int $quizid): string {
+    $url = local_dashboard_proctoring_report_url($quizid);
+    $label = get_string('viewproctorreport', 'local_dashboard');
+    if ($url === null) {
+        return html_writer::span($label, 'text-muted');
+    }
+    return html_writer::link($url, $label, [
+        'class' => 'ld-proctor-report-link',
+        'target' => '_blank',
+        'rel' => 'noopener noreferrer',
+    ]);
+}
+
+/**
  * PDF and CSV download buttons for action.php detail views.
  *
  * @param \stdClass $r Bootstrap object.
  * @param string $view Current view key.
+ * @param int $rowcount Unused; kept for call-site compatibility.
  * @return string HTML
  */
-function local_dashboard_action_export_buttons_html(\stdClass $r, string $view): string {
+function local_dashboard_action_export_buttons_html(\stdClass $r, string $view, int $rowcount = 0): string {
     $base = array_merge(local_dashboard_filter_url_params($r), [
         'view' => $view,
         'sesskey' => sesskey(),
@@ -1135,7 +1180,7 @@ function local_dashboard_action_export_row_html(\stdClass $r, string $view, int 
     $out = html_writer::start_div('ld-action-export-row');
     $out .= html_writer::div(get_string($countstring, 'local_dashboard', $rowcount), 'ld-detail-meta ld-detail-summary');
     if ($rowcount > 0) {
-        $out .= local_dashboard_action_export_buttons_html($r, $view);
+        $out .= local_dashboard_action_export_buttons_html($r, $view, $rowcount);
     }
     $out .= html_writer::end_div();
     return $out;
@@ -1166,7 +1211,8 @@ function local_dashboard_action_view_url(\stdClass $r, string $view): moodle_url
  * @param array $baseparams Params including companyid, fromtime, optional quizid.
  * @param int $limitfrom First row offset (used when $limitnum > 0).
  * @param int $limitnum Max rows; 0 = no limit.
- * @return stdClass[] List rows (0-based keys): userid, firstname, lastname, quizid, quizname, coursename, bestscore, failedflag, alertcount.
+ * @return stdClass[] List rows: userid, firstname, lastname, quizid, quizname, coursename, bestscore,
+ *     failedflag, alertcount, attemptcount.
  */
 function local_dashboard_fetch_ranked_scores_rows(
     string $quizsql,
@@ -1185,7 +1231,8 @@ function local_dashboard_fetch_ranked_scores_rows(
                 c.fullname AS coursename,
                 MAX((qa.sumgrades * 100.0) / NULLIF(q.sumgrades, 0)) AS bestscore,
                 MAX(CASE WHEN qmp.isautosubmit = 1 THEN 1 ELSE 0 END) AS failedflag,
-                COUNT(DISTINCT CASE WHEN pd.deleted = 0 AND pd.status != '' THEN pd.id ELSE NULL END) AS alertcount
+                COUNT(DISTINCT CASE WHEN pd.deleted = 0 AND pd.status != '' THEN pd.id ELSE NULL END) AS alertcount,
+                COUNT(DISTINCT qa.id) AS attemptcount
            FROM {quiz_attempts} qa
            JOIN {user} u ON u.id = qa.userid
            JOIN {quiz} q ON q.id = qa.quiz
@@ -1216,6 +1263,62 @@ function local_dashboard_fetch_ranked_scores_rows(
     $rs->close();
 
     return $rows;
+}
+
+/**
+ * Table headers for ranked scores detail tables (action scores view).
+ *
+ * @return string[]
+ */
+function local_dashboard_scores_table_head(): array {
+    return [
+        get_string('rank', 'local_dashboard'),
+        get_string('candidate', 'local_dashboard'),
+        get_string('tablecourse', 'local_dashboard'),
+        get_string('tableassessment', 'local_dashboard'),
+        get_string('score', 'local_dashboard'),
+        get_string('tableattempts', 'local_dashboard'),
+        get_string('tablealerts', 'local_dashboard'),
+        get_string('tablefailed', 'local_dashboard'),
+        get_string('queuereview', 'local_dashboard'),
+        get_string('proctorreport', 'local_dashboard'),
+    ];
+}
+
+/**
+ * One ranked-scores table row (HTML cells).
+ *
+ * @param \stdClass $row From {@see local_dashboard_fetch_ranked_scores_rows()}.
+ * @param \stdClass $r Dashboard bootstrap.
+ * @param int $rank Display rank (1-based).
+ * @return string[]
+ */
+function local_dashboard_scores_table_row_cells(\stdClass $row, \stdClass $r, int $rank): array {
+    $alertcount = (int) $row->alertcount;
+    $statuspill = $alertcount > 0
+        ? html_writer::span(get_string('statusalertcount', 'local_dashboard', $alertcount), 'ld-pill ld-pill-stat-pending')
+        : html_writer::span(get_string('statusclean', 'local_dashboard'), 'ld-pill ld-pill-stat-clean');
+    $name = fullname((object) ['firstname' => $row->firstname, 'lastname' => $row->lastname]);
+    $failed = (int) ($row->failedflag ?? 0) > 0;
+    $reviewlink = local_dashboard_proctor_reviewattempts_link_html(
+        (int) $row->userid,
+        (int) $row->quizid,
+        [],
+        (int) $r->companyid
+    );
+
+    return [
+        html_writer::span((string) $rank, 'ld-rank-box'),
+        html_writer::div($name, 'ld-candidate-name'),
+        format_string($row->coursename),
+        local_dashboard_quizview_link_html((int) $row->quizid, (string) $row->quizname),
+        html_writer::span(format_float((float) $row->bestscore, 1) . '%', 'ld-score-cell'),
+        number_format((int) ($row->attemptcount ?? 0)),
+        $statuspill,
+        $failed ? get_string('yes') : get_string('no'),
+        $reviewlink,
+        local_dashboard_proctoring_report_link_html((int) $row->quizid),
+    ];
 }
 
 /**

@@ -279,33 +279,13 @@ if ($view === 'highrisk') {
     $rows = local_dashboard_fetch_ranked_scores_rows($quizsql, $baseparams);
     echo local_dashboard_action_export_row_html($r, $view, count($rows), 'performersrowcount');
     $table = new html_table();
-    $table->head = [
-        get_string('rank', 'local_dashboard'),
-        get_string('candidate', 'local_dashboard'),
-        get_string('score', 'local_dashboard'),
-        get_string('session', 'local_dashboard'),
-    ];
-    $table->attributes['class'] = 'generaltable ld-table ld-detail-table';
+    $table->head = local_dashboard_scores_table_head();
+    $table->attributes['class'] = 'generaltable ld-table ld-detail-table ld-scores-detail-table';
     $table->attributes['id'] = 'ld-action-datatable';
     $table->data = [];
     $rank = 1;
     foreach ($rows as $row) {
-        $alertcount = (int) $row->alertcount;
-        $statuspill = $alertcount > 0
-            ? html_writer::span(get_string('statusalertcount', 'local_dashboard', $alertcount), 'ld-pill ld-pill-stat-pending')
-            : html_writer::span(get_string('statusclean', 'local_dashboard'), 'ld-pill ld-pill-stat-clean');
-        $name = fullname((object) ['firstname' => $row->firstname, 'lastname' => $row->lastname]);
-        $candidcell = html_writer::div($name, 'ld-candidate-name') .
-            html_writer::div(
-                local_dashboard_quizview_link_html((int) $row->quizid, (string) $row->quizname),
-                'ld-candidate-quiz'
-            );
-        $table->data[] = [
-            html_writer::span((string) $rank++, 'ld-rank-box'),
-            $candidcell,
-            html_writer::span(format_float((float) $row->bestscore, 1) . '%', 'ld-score-cell'),
-            $statuspill,
-        ];
+        $table->data[] = local_dashboard_scores_table_row_cells($row, $r, $rank++);
     }
     if (empty($table->data)) {
         $table->data[] = array_merge(
@@ -315,9 +295,9 @@ if ($view === 'highrisk') {
     }
     echo html_writer::table($table);
     local_dashboard_init_datatable('#ld-action-datatable', 50, [
-        'order' => [[2, 'desc']],
+        'order' => [[4, 'desc']],
         'columndefs' => [
-            ['orderable' => false, 'targets' => [0, 1, 3]],
+            ['orderable' => false, 'targets' => [0, 1, 8, 9]],
         ],
     ]);
 
@@ -342,6 +322,7 @@ if ($view === 'highrisk') {
         get_string('tablealerts', 'local_dashboard'),
         get_string('statflagged', 'local_dashboard'),
     ];
+    $table->head[] = get_string('proctorreport', 'local_dashboard');
     $table->attributes['class'] = 'generaltable ld-table ld-detail-table';
     $table->attributes['id'] = 'ld-action-datatable';
     $table->data = [];
@@ -352,7 +333,7 @@ if ($view === 'highrisk') {
         $badges = !empty($row->unusual)
             ? ' ' . html_writer::span(get_string('unusualactivity', 'local_dashboard'), 'ld-pill ld-pill-stat-pending')
             : '';
-        $table->data[] = [
+        $rowcells = [
             html_writer::span((string) $rank++, 'ld-rank-box'),
             $quizcell . $badges,
             $row->course,
@@ -361,6 +342,8 @@ if ($view === 'highrisk') {
             number_format($row->alerts),
             number_format($row->flaggedunion),
         ];
+        $rowcells[] = local_dashboard_proctoring_report_link_html((int) $row->quizid);
+        $table->data[] = $rowcells;
     }
     if (empty($table->data)) {
         $table->data[] = array_merge(
@@ -369,12 +352,14 @@ if ($view === 'highrisk') {
         );
     }
     echo html_writer::table($table);
-    local_dashboard_init_datatable('#ld-action-datatable', 50, [
+    $activitydtopts = [
         'order' => [[5, 'desc']],
         'columndefs' => [
             ['orderable' => false, 'targets' => [0]],
         ],
-    ]);
+    ];
+    $activitydtopts['columndefs'][0]['targets'][] = 7;
+    local_dashboard_init_datatable('#ld-action-datatable', 50, $activitydtopts);
 }
 
 echo html_writer::end_div();
