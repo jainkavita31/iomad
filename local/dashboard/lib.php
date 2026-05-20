@@ -797,13 +797,358 @@ JS
 }
 
 /**
+ * Plain text for PDF table cells (strip HTML, normalize whitespace, optional truncate).
+ *
+ * @param string $value
+ * @param int $maxlen
+ * @return string
+ */
+function local_dashboard_pdf_plain(string $value, int $maxlen = 120): string {
+    $value = html_to_text($value, 0);
+    $value = preg_replace('/\s+/u', ' ', trim($value));
+    if ($maxlen > 0 && \core_text::strlen($value) > $maxlen) {
+        return \core_text::substr($value, 0, $maxlen - 3) . '...';
+    }
+    return $value;
+}
+
+/**
+ * Build title, headers and plain-text rows for action.php PDF export.
+ *
+ * @param string $view highrisk|lowrisk|scores|activity|spike
+ * @param \stdClass $r Bootstrap from {@see local_dashboard_bootstrap_report()}.
+ * @return array{filename: string, title: string, subtitle: string, headers: string[], rows: string[][]}|null
+ */
+function local_dashboard_action_export_pack(string $view, \stdClass $r): ?array {
+    global $DB;
+
+    $allowed = ['highrisk', 'spike', 'lowrisk', 'scores', 'activity'];
+    if (!in_array($view, $allowed, true)) {
+        return null;
+    }
+
+    $companyid = (int) $r->companyid;
+    $companyname = (string) $r->companyname;
+    $timerangeoptions = $r->timerangeoptions;
+    $quizoptions = $r->quizoptions;
+    $timerange = (int) $r->timerange;
+    $quizid = (int) $r->quizid;
+    $fromtime = (int) $r->fromtime;
+    $baseparams = $r->baseparams;
+    $quizsql = $r->quizsql;
+
+    $title = get_string('actionpage_title_' . $view, 'local_dashboard');
+    $subtitle = $companyname . ' · ' . get_string('detailfiltercontext', 'local_dashboard', (object) [
+        'timerange' => $timerangeoptions[$timerange] ?? '',
+        'quiz' => $quizoptions[$quizid] ?? '',
+    ]);
+    $filename = 'exam-dashboard-' . $view . '-company-' . $companyid . '-' . userdate(time(), '%Y%m%d');
+
+    $ldpend = local_dashboard_review_log_pending_only_sql_parts();
+    $queuefrom = "
+       FROM {quizaccess_main_proctor} qmp
+       JOIN {quiz_attempts} qa ON qa.id = qmp.attemptid
+       JOIN {user} u ON u.id = qa.userid
+       JOIN {quiz} q ON q.id = qa.quiz
+       JOIN {company_course} cc ON cc.courseid = q.course
+       JOIN {quizaccess_quizproctoring} qp ON qp.quizid = q.id
+       LEFT JOIN {quizaccess_proctor_data} pd ON pd.attemptid = qmp.attemptid
+                                          AND pd.quizid = q.id
+            {$ldpend['join']}
+      WHERE cc.companyid = :companyid
+        AND qp.enableproctoring = 1
+        AND qa.preview = 0
+        AND qa.timestart >= :fromtime
+        AND qmp.deleted = 0
+        AND qmp.image_status = 'M'
+        {$ldpend['where']}
+        $quizsql ";
+    $queueselect = "SELECT qmp.attemptid,
+            u.id AS userid,
+            u.firstname,
+            u.lastname,
+            q.id AS quizid,
+            q.name AS quizname,
+            SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) AS alertcount,
+            MAX(qmp.isautosubmit) AS isautosubmit ";
+    $queuegroup = " GROUP BY qmp.attemptid, u.id, u.firstname, u.lastname, q.id, q.name ";
+
+    if ($view === 'highrisk' || $view === 'lowrisk') {
+        $having = '';
+        if ($view === 'highrisk') {
+            $having = " HAVING SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) > 0
+            AND (MAX(qmp.isautosubmit) = 1
+            OR SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) >= 6)
+        ORDER BY alertcount DESC, isautosubmit DESC";
+        } else {
+            $having = " HAVING SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) > 0
+            AND MAX(qmp.isautosubmit) = 0
+            AND SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) >= 1
+            AND SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) <= 2
+        ORDER BY alertcount DESC";
+        }
+        $records = $DB->get_records_sql($queueselect . $queuefrom . $queuegroup . $having, $baseparams);
+        $headers = [
+            get_string('rank', 'local_dashboard'),
+            get_string('queuecandidate', 'local_dashboard'),
+            get_string('queueassessment', 'local_dashboard'),
+            get_string('queuealerts', 'local_dashboard'),
+            get_string('queueseverity', 'local_dashboard'),
+            get_string('queuestatus', 'local_dashboard'),
+        ];
+        $rows = [];
+        $rank = 1;
+        foreach ($records as $row) {
+            [$severitykey, $statuskey] = local_dashboard_queue_row_status_keys($row);
+            $rows[] = [
+                (string) $rank++,
+                local_dashboard_pdf_plain(fullname((object) ['firstname' => $row->firstname, 'lastname' => $row->lastname])),
+                local_dashboard_pdf_plain(format_string($row->quizname)),
+                (string) (int) $row->alertcount,
+                local_dashboard_pdf_plain(get_string($severitykey, 'local_dashboard')),
+                local_dashboard_pdf_plain(get_string($statuskey, 'local_dashboard')),
+            ];
+        }
+        return [
+            'filename' => $filename,
+            'title' => $title,
+            'subtitle' => $subtitle,
+            'headers' => $headers,
+            'rows' => $rows,
+        ];
+    }
+
+    if ($view === 'scores') {
+        $records = local_dashboard_fetch_ranked_scores_rows($quizsql, $baseparams);
+        $headers = [
+            get_string('exportcsv_rank', 'local_dashboard'),
+            get_string('exportcsv_userid', 'local_dashboard'),
+            get_string('firstname', 'moodle'),
+            get_string('lastname', 'moodle'),
+            get_string('exportcsv_quizid', 'local_dashboard'),
+            get_string('tableassessment', 'local_dashboard'),
+            get_string('tablecourse', 'local_dashboard'),
+            get_string('exportcsv_scorepct', 'local_dashboard'),
+            get_string('session', 'local_dashboard'),
+        ];
+        $rows = [];
+        $rank = 1;
+        foreach ($records as $row) {
+            $alertcount = (int) $row->alertcount;
+            $sessionlabel = $alertcount > 0
+                ? get_string('statusalertcount', 'local_dashboard', $alertcount)
+                : get_string('statusclean', 'local_dashboard');
+            $rows[] = [
+                (string) $rank++,
+                (string) (int) $row->userid,
+                (string) $row->firstname,
+                (string) $row->lastname,
+                (string) (int) $row->quizid,
+                local_dashboard_pdf_plain(format_string($row->quizname)),
+                local_dashboard_pdf_plain(format_string($row->coursename)),
+                format_float((float) $row->bestscore, 1),
+                local_dashboard_pdf_plain($sessionlabel),
+            ];
+        }
+        return [
+            'filename' => $filename,
+            'title' => $title,
+            'subtitle' => $subtitle,
+            'headers' => $headers,
+            'rows' => $rows,
+        ];
+    }
+
+    // activity or spike.
+    $stats = local_dashboard_fetch_assessment_stats($companyid, $fromtime, $quizsql, $baseparams);
+    usort($stats, static function ($a, $b) {
+        return ((int) $b->alerts) <=> ((int) $a->alerts);
+    });
+    if ($view === 'spike') {
+        $stats = array_values(array_filter($stats, static function ($row) {
+            return !empty($row->unusual) || (int) $row->alerts >= 3;
+        }));
+    }
+    $headers = [
+        get_string('rank', 'local_dashboard'),
+        get_string('tableassessment', 'local_dashboard'),
+        get_string('tablecourse', 'local_dashboard'),
+        get_string('statcandidates', 'local_dashboard'),
+        get_string('tableattempts', 'local_dashboard'),
+        get_string('tablealerts', 'local_dashboard'),
+        get_string('statflagged', 'local_dashboard'),
+    ];
+    $rows = [];
+    $rank = 1;
+    foreach ($stats as $row) {
+        $quizlabel = format_string($row->quiznameraw);
+        if (!empty($row->unusual)) {
+            $quizlabel .= ' (' . get_string('unusualactivity', 'local_dashboard') . ')';
+        }
+        $rows[] = [
+            (string) $rank++,
+            local_dashboard_pdf_plain($quizlabel),
+            local_dashboard_pdf_plain((string) $row->course),
+            number_format($row->users),
+            number_format($row->attempts),
+            number_format($row->alerts),
+            number_format($row->flaggedunion),
+        ];
+    }
+    return [
+        'filename' => $filename,
+        'title' => $title,
+        'subtitle' => $subtitle,
+        'headers' => $headers,
+        'rows' => $rows,
+    ];
+}
+
+/**
+ * Send a landscape PDF table download and exit.
+ *
+ * @param string $filename Base filename without extension.
+ * @param string $title Report title.
+ * @param string $subtitle Filter context line.
+ * @param string[] $headers Column headings.
+ * @param string[][] $rows Table body (plain text).
+ */
+function local_dashboard_download_table_pdf(
+    string $filename,
+    string $title,
+    string $subtitle,
+    array $headers,
+    array $rows
+): void {
+    global $CFG;
+
+    require_once($CFG->libdir . '/pdflib.php');
+
+    $pdf = new pdf('L', 'mm', 'A4');
+    $pdf->setPrintHeader(false);
+    $pdf->setPrintFooter(false);
+    $pdf->SetAutoPageBreak(true, 15);
+    $pdf->AddPage();
+
+    $font = PDF_DEFAULT_FONT;
+    $pdf->SetFont($font, 'B', 14);
+    $pdf->Cell(0, 8, local_dashboard_pdf_plain($title, 200), 0, 1, 'L');
+    $pdf->SetFont($font, '', 9);
+    $pdf->MultiCell(0, 5, local_dashboard_pdf_plain($subtitle, 500), 0, 'L');
+    $pdf->Ln(3);
+
+    if (empty($headers)) {
+        $pdf->Output(clean_filename($filename) . '.pdf', 'D');
+        exit;
+    }
+
+    $margins = $pdf->getMargins();
+    $pagewidth = $pdf->getPageWidth() - $margins['left'] - $margins['right'];
+    $colcount = count($headers);
+    $colwidth = $pagewidth / max(1, $colcount);
+
+    $pdf->SetFont($font, 'B', 8);
+    $pdf->SetFillColor(235, 235, 235);
+    foreach ($headers as $header) {
+        $pdf->Cell($colwidth, 7, local_dashboard_pdf_plain($header, 80), 1, 0, 'L', true);
+    }
+    $pdf->Ln();
+
+    $pdf->SetFont($font, '', 8);
+    $pdf->SetFillColor(255, 255, 255);
+    if (empty($rows)) {
+        $pdf->Cell($pagewidth, 7, get_string('nofiltereddata', 'local_dashboard'), 1, 1, 'C');
+    } else {
+        foreach ($rows as $row) {
+            foreach ($row as $cell) {
+                $pdf->Cell($colwidth, 7, local_dashboard_pdf_plain((string) $cell, 80), 1, 0, 'L');
+            }
+            $pdf->Ln();
+        }
+    }
+
+    $pdf->Output(clean_filename($filename) . '.pdf', 'D');
+    exit;
+}
+
+/**
+ * CSV download for action.php (same data columns as PDF export pack).
+ *
+ * @param string $view highrisk|lowrisk|scores|activity|spike
+ * @param \stdClass $r Bootstrap from {@see local_dashboard_bootstrap_report()}.
+ */
+function local_dashboard_download_action_csv(string $view, \stdClass $r): void {
+    global $CFG;
+
+    $pack = local_dashboard_action_export_pack($view, $r);
+    if ($pack === null) {
+        return;
+    }
+
+    require_once($CFG->libdir . '/csvlib.class.php');
+    $csv = new csv_export_writer();
+    $csv->set_filename($pack['filename']);
+    $csv->add_data($pack['headers']);
+    foreach ($pack['rows'] as $row) {
+        $csv->add_data($row);
+    }
+    $csv->download_file();
+}
+
+/**
+ * PDF and CSV download buttons for action.php detail views.
+ *
+ * @param \stdClass $r Bootstrap object.
+ * @param string $view Current view key.
+ * @return string HTML
+ */
+function local_dashboard_action_export_buttons_html(\stdClass $r, string $view): string {
+    $base = array_merge(local_dashboard_filter_url_params($r), [
+        'view' => $view,
+        'sesskey' => sesskey(),
+    ]);
+    $pdfurl = new moodle_url('/local/dashboard/action.php', array_merge($base, ['export' => 'pdf']));
+    $csvurl = new moodle_url('/local/dashboard/action.php', array_merge($base, ['export' => 'csv']));
+    $buttons = html_writer::link(
+        $pdfurl,
+        get_string('downloadpdf', 'local_dashboard'),
+        ['class' => 'btn btn-secondary ld-export-pdf-link']
+    );
+    $buttons .= ' ' . html_writer::link(
+        $csvurl,
+        get_string('downloadcsv', 'local_dashboard'),
+        ['class' => 'btn btn-secondary ld-export-csv-link']
+    );
+    return html_writer::div($buttons, 'ld-action-export-buttons');
+}
+
+/**
+ * Export row: row count summary + download buttons.
+ *
+ * @param \stdClass $r Bootstrap object.
+ * @param string $view View key.
+ * @param int $rowcount Rows in the current table.
+ * @param string $countstring Lang string key for count (e.g. actionpage_rowcount).
+ * @return string HTML
+ */
+function local_dashboard_action_export_row_html(\stdClass $r, string $view, int $rowcount, string $countstring): string {
+    $out = html_writer::start_div('ld-action-export-row');
+    $out .= html_writer::div(get_string($countstring, 'local_dashboard', $rowcount), 'ld-detail-meta ld-detail-summary');
+    if ($rowcount > 0) {
+        $out .= local_dashboard_action_export_buttons_html($r, $view);
+    }
+    $out .= html_writer::end_div();
+    return $out;
+}
+
+/**
  * URL for a recommended-action detail page.
  *
- * @param stdClass $r Bootstrap object from local_dashboard_bootstrap_report().
+ * @param \stdClass $r Bootstrap object from local_dashboard_bootstrap_report().
  * @param string $view One of: highrisk, spike, lowrisk, scores, activity.
  * @return moodle_url
  */
-function local_dashboard_action_view_url(stdClass $r, string $view): moodle_url {
+function local_dashboard_action_view_url(\stdClass $r, string $view): moodle_url {
     $allowed = ['highrisk', 'spike', 'lowrisk', 'scores', 'activity'];
     if (!in_array($view, $allowed, true)) {
         $view = 'highrisk';
@@ -871,6 +1216,41 @@ function local_dashboard_fetch_ranked_scores_rows(
     $rs->close();
 
     return $rows;
+}
+
+/**
+ * Maximum assessment health cards shown on the main exam dashboard index widget.
+ *
+ * @return int
+ */
+function local_dashboard_assessment_health_widget_max(): int {
+    return 6;
+}
+
+/**
+ * Cards to show in the index assessment health widget (top by alerts, then flagged).
+ *
+ * @param array $assessmentstats From {@see local_dashboard_fetch_assessment_stats()}.
+ * @return array{cards: array, total: int}
+ */
+function local_dashboard_assessment_health_widget_cards(array $assessmentstats): array {
+    $total = count($assessmentstats);
+    if ($total === 0) {
+        return ['cards' => [], 'total' => 0];
+    }
+    $cards = array_values($assessmentstats);
+    usort($cards, static function ($a, $b) {
+        $cmp = ((int) $b->alerts) <=> ((int) $a->alerts);
+        if ($cmp !== 0) {
+            return $cmp;
+        }
+        return ((int) $b->flaggedunion) <=> ((int) $a->flaggedunion);
+    });
+    $max = local_dashboard_assessment_health_widget_max();
+    if ($total > $max) {
+        $cards = array_slice($cards, 0, $max);
+    }
+    return ['cards' => $cards, 'total' => $total];
 }
 
 /**

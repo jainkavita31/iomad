@@ -807,6 +807,12 @@
     padding-bottom: 0.55rem;
 }
 
+.local-dashboard .ld-assessment-health-more {
+    margin-top: 0.75rem;
+    font-size: 0.88rem;
+    color: #64748b;
+}
+
 .local-dashboard .ld-assessment-cards {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -930,6 +936,7 @@
     margin: 0 0 1rem;
 }
 
+.local-dashboard.ld-detail-page .ld-action-export-row,
 .local-dashboard.ld-detail-page .ld-scores-export-row {
     display: flex;
     flex-wrap: wrap;
@@ -939,8 +946,15 @@
     margin-bottom: 1rem;
 }
 
+.local-dashboard.ld-detail-page .ld-action-export-row .ld-detail-summary,
 .local-dashboard.ld-detail-page .ld-scores-export-row .ld-detail-summary {
     margin: 0;
+}
+
+.local-dashboard.ld-detail-page .ld-action-export-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
 .local-dashboard.ld-detail-page .ld-detail-meta {

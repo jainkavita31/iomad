@@ -373,8 +373,13 @@ echo local_dashboard_section_heading('h4', 'assessmenthealth', 'health', [
     'subtitle' => get_string('assessmenthealthdesc', 'local_dashboard'),
     'action_html' => $healthactionhtml,
 ]);
+$assessmenthealthwidget = local_dashboard_assessment_health_widget_cards(
+    is_array($assessmentstats) ? $assessmentstats : []
+);
+$assessmenthealthcards = $assessmenthealthwidget['cards'];
+$assessmenthealthtotal = $assessmenthealthwidget['total'];
 echo html_writer::start_div('ld-assessment-cards');
-foreach ($assessmentstats as $row) {
+foreach ($assessmenthealthcards as $row) {
     $cardextra = !empty($row->unusual) ? ' ld-assessment-card--unusual' : '';
     echo html_writer::start_div('ld-assessment-card' . $cardextra);
     if (!empty($row->unusual)) {
@@ -420,8 +425,16 @@ foreach ($assessmentstats as $row) {
     echo html_writer::end_div();
     echo html_writer::end_div();
 }
-if (empty($assessmentstats)) {
+if (empty($assessmenthealthcards)) {
     echo html_writer::div(get_string('nofiltereddata', 'local_dashboard'));
+} else if ($assessmenthealthtotal > local_dashboard_assessment_health_widget_max()) {
+    echo html_writer::div(
+        get_string('assessmenthealthshowing', 'local_dashboard', (object) [
+            'shown' => count($assessmenthealthcards),
+            'total' => $assessmenthealthtotal,
+        ]),
+        'ld-assessment-health-more'
+    );
 }
 echo html_writer::end_div();
 echo html_writer::end_div();

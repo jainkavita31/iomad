@@ -77,6 +77,7 @@ $string['highriskpending'] = 'High-risk pending';
 
 $string['assessmenthealth'] = 'Assessment health overview';
 $string['assessmenthealthdesc'] = 'Alert volume, completion and integrity status by assessment';
+$string['assessmenthealthshowing'] = 'Showing {$a->shown} of {$a->total} assessments (highest alert volume). View all assessments for the full list.';
 $string['tablecourse'] = 'Course';
 $string['tableassessment'] = 'Assessment';
 $string['tablecandidates'] = 'Candidates';
@@ -152,6 +153,8 @@ $string['detailfiltercontext'] = '{$a->timerange} · {$a->quiz}';
 $string['queuerowcount'] = '{$a} sessions in queue';
 $string['performersrowcount'] = '{$a} ranked entries';
 $string['scoresdownloadcsv'] = 'Download CSV';
+$string['downloadcsv'] = 'Download CSV';
+$string['downloadpdf'] = 'Download PDF';
 $string['exportcsv_rank'] = 'Rank';
 $string['exportcsv_userid'] = 'User ID';
 $string['exportcsv_quizid'] = 'Quiz ID';

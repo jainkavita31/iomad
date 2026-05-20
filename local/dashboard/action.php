@@ -50,42 +50,23 @@ if (!in_array($view, $allowedviews, true)) {
 }
 
 $exportfmt = optional_param('export', '', PARAM_ALPHA);
-if ($exportfmt === 'csv' && $view === 'scores') {
+if ($exportfmt === 'csv') {
     require_sesskey();
-    require_once($CFG->libdir . '/csvlib.class.php');
-    $rows = local_dashboard_fetch_ranked_scores_rows($quizsql, $baseparams);
-    $csv = new csv_export_writer();
-    $csv->set_filename('ranked-scores-company-' . (int) $companyid);
-    $csv->add_data([
-        get_string('exportcsv_rank', 'local_dashboard'),
-        get_string('exportcsv_userid', 'local_dashboard'),
-        get_string('firstname', 'moodle'),
-        get_string('lastname', 'moodle'),
-        get_string('exportcsv_quizid', 'local_dashboard'),
-        get_string('tableassessment', 'local_dashboard'),
-        get_string('tablecourse', 'local_dashboard'),
-        get_string('exportcsv_scorepct', 'local_dashboard'),
-        get_string('session', 'local_dashboard'),
-    ]);
-    $rank = 1;
-    foreach ($rows as $row) {
-        $alertcount = (int) $row->alertcount;
-        $sessionlabel = $alertcount > 0
-            ? get_string('statusalertcount', 'local_dashboard', $alertcount)
-            : get_string('statusclean', 'local_dashboard');
-        $csv->add_data([
-            (string) $rank++,
-            (string) (int) $row->userid,
-            (string) $row->firstname,
-            (string) $row->lastname,
-            (string) (int) $row->quizid,
-            (string) format_string($row->quizname),
-            (string) format_string($row->coursename),
-            format_float((float) $row->bestscore, 1),
-            $sessionlabel,
-        ]);
+    local_dashboard_download_action_csv($view, $r);
+}
+
+if ($exportfmt === 'pdf') {
+    require_sesskey();
+    $pack = local_dashboard_action_export_pack($view, $r);
+    if ($pack !== null) {
+        local_dashboard_download_table_pdf(
+            $pack['filename'],
+            $pack['title'],
+            $pack['subtitle'],
+            $pack['headers'],
+            $pack['rows']
+        );
     }
-    $csv->download_file();
 }
 
 $pageurl = new moodle_url('/local/dashboard/action.php', array_merge(
@@ -214,9 +195,10 @@ if ($view === 'highrisk') {
         ORDER BY alertcount DESC, isautosubmit DESC",
         $baseparams
     );
-    echo html_writer::div(get_string('actionpage_rowcount', 'local_dashboard', count($rows)), 'ld-detail-meta ld-detail-summary');
+    echo local_dashboard_action_export_row_html($r, $view, count($rows), 'actionpage_rowcount');
     $table = new html_table();
     $table->head = [
+        get_string('rank', 'local_dashboard'),
         get_string('queuecandidate', 'local_dashboard'),
         get_string('queueassessment', 'local_dashboard'),
         get_string('queuealerts', 'local_dashboard'),
@@ -227,17 +209,24 @@ if ($view === 'highrisk') {
     $table->attributes['class'] = 'generaltable ld-table ld-detail-table';
     $table->attributes['id'] = 'ld-action-datatable';
     $table->data = [];
+    $rank = 1;
     foreach ($rows as $row) {
-        $table->data[] = $queuerowcells($row);
+        $table->data[] = array_merge(
+            [html_writer::span((string) $rank++, 'ld-rank-box')],
+            $queuerowcells($row)
+        );
     }
     if (empty($table->data)) {
-        $table->data[] = [get_string('nofiltereddata', 'local_dashboard'), '', '', '', '', ''];
+        $table->data[] = array_merge(
+            [get_string('nofiltereddata', 'local_dashboard')],
+            array_fill(0, count($table->head) - 1, '')
+        );
     }
     echo html_writer::table($table);
     local_dashboard_init_datatable('#ld-action-datatable', 50, [
-        'order' => [[2, 'desc']],
+        'order' => [[3, 'desc']],
         'columndefs' => [
-            ['orderable' => false, 'targets' => [5]],
+            ['orderable' => false, 'targets' => [0, 6]],
         ],
     ]);
 
@@ -251,9 +240,10 @@ if ($view === 'highrisk') {
         ORDER BY alertcount DESC",
         $baseparams
     );
-    echo html_writer::div(get_string('actionpage_rowcount', 'local_dashboard', count($rows)), 'ld-detail-meta ld-detail-summary');
+    echo local_dashboard_action_export_row_html($r, $view, count($rows), 'actionpage_rowcount');
     $table = new html_table();
     $table->head = [
+        get_string('rank', 'local_dashboard'),
         get_string('queuecandidate', 'local_dashboard'),
         get_string('queueassessment', 'local_dashboard'),
         get_string('queuealerts', 'local_dashboard'),
@@ -264,32 +254,30 @@ if ($view === 'highrisk') {
     $table->attributes['class'] = 'generaltable ld-table ld-detail-table';
     $table->attributes['id'] = 'ld-action-datatable';
     $table->data = [];
+    $rank = 1;
     foreach ($rows as $row) {
-        $table->data[] = $queuerowcells($row);
+        $table->data[] = array_merge(
+            [html_writer::span((string) $rank++, 'ld-rank-box')],
+            $queuerowcells($row)
+        );
     }
     if (empty($table->data)) {
-        $table->data[] = [get_string('nofiltereddata', 'local_dashboard'), '', '', '', '', ''];
+        $table->data[] = array_merge(
+            [get_string('nofiltereddata', 'local_dashboard')],
+            array_fill(0, count($table->head) - 1, '')
+        );
     }
     echo html_writer::table($table);
     local_dashboard_init_datatable('#ld-action-datatable', 50, [
-        'order' => [[2, 'desc']],
+        'order' => [[3, 'desc']],
         'columndefs' => [
-            ['orderable' => false, 'targets' => [5]],
+            ['orderable' => false, 'targets' => [0, 6]],
         ],
     ]);
 
 } else if ($view === 'scores') {
     $rows = local_dashboard_fetch_ranked_scores_rows($quizsql, $baseparams);
-    $exporturl = new moodle_url('/local/dashboard/action.php', array_merge(
-        local_dashboard_filter_url_params($r),
-        ['view' => 'scores', 'export' => 'csv', 'sesskey' => sesskey()]
-    ));
-    echo html_writer::start_div('ld-scores-export-row');
-    echo html_writer::div(get_string('performersrowcount', 'local_dashboard', count($rows)), 'ld-detail-meta ld-detail-summary');
-    echo html_writer::link($exporturl, get_string('scoresdownloadcsv', 'local_dashboard'), [
-        'class' => 'btn btn-secondary ld-scores-csv-link',
-    ]);
-    echo html_writer::end_div();
+    echo local_dashboard_action_export_row_html($r, $view, count($rows), 'performersrowcount');
     $table = new html_table();
     $table->head = [
         get_string('rank', 'local_dashboard'),
@@ -320,7 +308,10 @@ if ($view === 'highrisk') {
         ];
     }
     if (empty($table->data)) {
-        $table->data[] = [get_string('nofiltereddata', 'local_dashboard'), '', '', ''];
+        $table->data[] = array_merge(
+            [get_string('nofiltereddata', 'local_dashboard')],
+            array_fill(0, count($table->head) - 1, '')
+        );
     }
     echo html_writer::table($table);
     local_dashboard_init_datatable('#ld-action-datatable', 50, [
@@ -340,9 +331,10 @@ if ($view === 'highrisk') {
             return !empty($row->unusual) || (int) $row->alerts >= 3;
         }));
     }
-    echo html_writer::div(get_string('actionpage_rowcount', 'local_dashboard', count($stats)), 'ld-detail-meta ld-detail-summary');
+    echo local_dashboard_action_export_row_html($r, $view, count($stats), 'actionpage_rowcount');
     $table = new html_table();
     $table->head = [
+        get_string('rank', 'local_dashboard'),
         get_string('tableassessment', 'local_dashboard'),
         get_string('tablecourse', 'local_dashboard'),
         get_string('statcandidates', 'local_dashboard'),
@@ -353,6 +345,7 @@ if ($view === 'highrisk') {
     $table->attributes['class'] = 'generaltable ld-table ld-detail-table';
     $table->attributes['id'] = 'ld-action-datatable';
     $table->data = [];
+    $rank = 1;
     foreach ($stats as $row) {
         // Rows use quiznameraw + quizid from fetch_assessment_stats.
         $quizcell = local_dashboard_quizview_link_html((int) $row->quizid, (string) $row->quiznameraw);
@@ -360,6 +353,7 @@ if ($view === 'highrisk') {
             ? ' ' . html_writer::span(get_string('unusualactivity', 'local_dashboard'), 'ld-pill ld-pill-stat-pending')
             : '';
         $table->data[] = [
+            html_writer::span((string) $rank++, 'ld-rank-box'),
             $quizcell . $badges,
             $row->course,
             number_format($row->users),
@@ -369,11 +363,17 @@ if ($view === 'highrisk') {
         ];
     }
     if (empty($table->data)) {
-        $table->data[] = [get_string('nofiltereddata', 'local_dashboard'), '', '', '', '', ''];
+        $table->data[] = array_merge(
+            [get_string('nofiltereddata', 'local_dashboard')],
+            array_fill(0, count($table->head) - 1, '')
+        );
     }
     echo html_writer::table($table);
     local_dashboard_init_datatable('#ld-action-datatable', 50, [
-        'order' => [[4, 'desc']],
+        'order' => [[5, 'desc']],
+        'columndefs' => [
+            ['orderable' => false, 'targets' => [0]],
+        ],
     ]);
 }
 

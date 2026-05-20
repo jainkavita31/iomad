@@ -81,7 +81,7 @@ If review log is enabled, pending buckets exclude attempts already logged as rev
 
 ## Assessment health overview
 
-The **Assessment health overview** panel lists one card per proctored quiz in scope that has at least one attempt in the selected time range. Data is built by `local_dashboard_fetch_assessment_stats()` in `local/dashboard/lib.php` (same helper used for the cached index payload and the full **Assessment health — all assessments** page at `assessments.php`).
+The **Assessment health overview** panel on the main dashboard shows up to **6** assessment cards (highest **alert** count first, then **flagged**). The full list is on **View all assessments** (`assessments.php`). Data is built by `local_dashboard_fetch_assessment_stats()` in `local/dashboard/lib.php` (same helper used for the cached index payload and the assessments detail page).
 
 ### Which assessments appear
 
@@ -142,7 +142,7 @@ A card is marked **Unusual activity** when:
 
 | | Main dashboard widget | `assessments.php` |
 |--|----------------------|-------------------|
-| Assessments shown | Filtered by dashboard assessment dropdown | All proctored quizzes for the company |
+| Assessments shown | Up to **6** cards (by alert volume); filtered by dashboard assessment dropdown | All qualifying proctored quizzes for the company |
 | Layout | Cards with bar + three headline stats | Sortable table (default sort: alerts DESC, then flagged DESC) |
 | Extra columns | — | Attempts, alerts, failed, score, cleared / warning / high-risk % |
 
