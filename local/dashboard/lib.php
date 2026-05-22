@@ -351,14 +351,7 @@ function local_dashboard_bootstrap_report(): ?stdClass {
     }
     $companyoptions = $companyoptionswithview;
 
-    $companyid = 0;
-    if ($requestedcompanyid > 0 && array_key_exists($requestedcompanyid, $companyoptions)) {
-        $companyid = $requestedcompanyid;
-    } else if (!empty($SESSION->currenteditingcompany) && array_key_exists((int) $SESSION->currenteditingcompany, $companyoptions)) {
-        $companyid = (int) $SESSION->currenteditingcompany;
-    } else if (!empty($companyoptions)) {
-        $companyid = (int) array_key_first($companyoptions);
-    }
+    $companyid = local_dashboard_resolve_company_id($requestedcompanyid, $companyoptions);
 
     if (!$companyid) {
         $PAGE->set_url('/local/dashboard/index.php');
@@ -439,6 +432,9 @@ function local_dashboard_bootstrap_report(): ?stdClass {
 
     $companyname = (string) $DB->get_field('company', 'name', ['id' => $companyid], IGNORE_MISSING);
     $companyname = format_string($companyname ?: ('ID ' . $companyid));
+
+    // Remember last dashboard company so menu links without companyid do not revert to IOMAD editing company.
+    $SESSION->local_dashboard_last_companyid = $companyid;
 
     $out = new stdClass();
     $out->companyid = $companyid;
@@ -1527,8 +1523,44 @@ function local_dashboard_fetch_assessment_stats(
  *
  * @return int 0 if none.
  */
+function local_dashboard_resolve_company_id(int $requestedcompanyid, array $companyoptions): int {
+    global $SESSION;
+
+    if ($requestedcompanyid > 0 && array_key_exists($requestedcompanyid, $companyoptions)) {
+        return $requestedcompanyid;
+    }
+
+    if (!empty($SESSION->local_dashboard_last_companyid)) {
+        $last = (int) $SESSION->local_dashboard_last_companyid;
+        if (array_key_exists($last, $companyoptions)) {
+            return $last;
+        }
+    }
+
+    if (!empty($SESSION->currenteditingcompany)) {
+        $editing = (int) $SESSION->currenteditingcompany;
+        if (array_key_exists($editing, $companyoptions)) {
+            return $editing;
+        }
+    }
+
+    if (!empty($companyoptions)) {
+        return (int) array_key_first($companyoptions);
+    }
+
+    return 0;
+}
+
+function local_dashboard_index_url(): moodle_url {
+    $companyid = local_dashboard_first_company_with_dashboard_view();
+    if ($companyid > 0) {
+        return new moodle_url('/local/dashboard/index.php', ['companyid' => $companyid]);
+    }
+    return new moodle_url('/local/dashboard/index.php');
+}
+
 function local_dashboard_first_company_with_dashboard_view(): int {
-    global $DB, $SESSION, $USER;
+    global $DB, $USER;
 
     $systemcontext = context_system::instance();
     $canall = has_capability('moodle/site:config', $systemcontext);
@@ -1566,13 +1598,9 @@ function local_dashboard_first_company_with_dashboard_view(): int {
     if ($candidates === []) {
         return 0;
     }
-    if (!empty($SESSION->currenteditingcompany)) {
-        $sess = (int) $SESSION->currenteditingcompany;
-        if (in_array($sess, $candidates, true)) {
-            return $sess;
-        }
-    }
-    return $candidates[0];
+
+    $options = array_fill_keys($candidates, '');
+    return local_dashboard_resolve_company_id(0, $options);
 }
 
 /**
@@ -1631,20 +1659,21 @@ function local_dashboard_extend_navigation(global_navigation $nav): void {
     }
 
     $label = get_string('pluginname', 'local_dashboard');
-    $url = '/local/dashboard/index.php';
+    $indexurl = local_dashboard_index_url();
+    $urlpath = $indexurl->out_omit_querystring(false);
 
     // IOMAD / Boost primary navigation drawer reads $CFG->custommenuitems (see core\navigation\output\primary).
     if (!isset($CFG->dbunmodifiedcustommenuitems)) {
         $CFG->dbunmodifiedcustommenuitems = $CFG->custommenuitems ?? '';
     }
-    if (strpos($CFG->custommenuitems ?? '', $url) === false) {
-        $CFG->custommenuitems = rtrim($CFG->custommenuitems ?? '') . "\n{$label}|{$url}\n";
+    if (strpos($CFG->custommenuitems ?? '', '/local/dashboard/index.php') === false) {
+        $CFG->custommenuitems = rtrim($CFG->custommenuitems ?? '') . "\n{$label}|{$urlpath}\n";
     }
 
     if (!$nav->find('local_dashboard', navigation_node::TYPE_CUSTOM)) {
         $node = $nav->add(
             $label,
-            new moodle_url($url),
+            $indexurl,
             navigation_node::TYPE_CUSTOM,
             null,
             'local_dashboard',
@@ -1671,7 +1700,7 @@ function local_dashboard_extend_settings_navigation(settings_navigation $setting
 
     $node = navigation_node::create(
         get_string('pluginname', 'local_dashboard'),
-        new moodle_url('/local/dashboard/index.php'),
+        local_dashboard_index_url(),
         navigation_node::TYPE_CUSTOM,
         null,
         'local_dashboard_settings',
