@@ -34,6 +34,8 @@ $capabilities = [
             'clientadministrator' => CAP_ALLOW,
             'clientreporter' => CAP_ALLOW,
             'companyreporter' => CAP_ALLOW,
+            'teacher' => CAP_PREVENT,
+            'editingteacher' => CAP_PREVENT,
         ],
     ],
 ];

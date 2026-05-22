@@ -24,19 +24,23 @@ defined('MOODLE_INTERNAL') || die();
 class hook_callbacks {
 
     /**
-     * Restore $CFG->custommenuitems after navigation has been built.
+     * Add Exam Dashboard to Boost primary navigation for capable users only.
      *
-     * @param \core\hook\output\before_standard_top_of_body_html_generation $hook
+     * @param \core\hook\navigation\primary_extend $hook
      * @return void
      */
-    public static function before_standard_top_of_body_html_generation(
-        \core\hook\output\before_standard_top_of_body_html_generation $hook
-    ): void {
-        global $CFG;
-
-        if (isset($CFG->dbunmodifiedcustommenuitems)) {
-            $CFG->custommenuitems = $CFG->dbunmodifiedcustommenuitems;
-            unset($CFG->dbunmodifiedcustommenuitems);
+    public static function primary_extend(\core\hook\navigation\primary_extend $hook): void {
+        if (!local_dashboard_user_can_view()) {
+            return;
         }
+
+        $hook->get_primaryview()->add(
+            get_string('pluginname', 'local_dashboard'),
+            local_dashboard_index_url(),
+            \navigation_node::TYPE_CUSTOM,
+            null,
+            'local_dashboard',
+            new \pix_icon('i/report', '')
+        );
     }
 }

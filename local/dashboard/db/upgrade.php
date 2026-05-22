@@ -89,5 +89,11 @@ function xmldb_local_dashboard_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026043064, 'local', 'dashboard');
     }
 
+    if ($oldversion < 2026043065) {
+        update_capabilities('local_dashboard');
+        purge_all_caches();
+        upgrade_plugin_savepoint(true, 2026043065, 'local', 'dashboard');
+    }
+
     return true;
 }

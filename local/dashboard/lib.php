@@ -1692,15 +1692,72 @@ function local_dashboard_user_can_view(): bool {
 }
 
 /**
+ * Remove exam dashboard URLs from custom menu text (site or company menu).
+ *
+ * @param string $text Custom menu definition text.
+ * @return string
+ */
+function local_dashboard_strip_dashboard_from_custom_menu_text(string $text): string {
+    if ($text === '') {
+        return '';
+    }
+
+    $kept = [];
+    foreach (preg_split('/\r\n|\n|\r/', $text) as $line) {
+        $line = trim($line);
+        if ($line === '') {
+            continue;
+        }
+        if (strpos($line, '/local/dashboard/') !== false) {
+            continue;
+        }
+        $kept[] = $line;
+    }
+
+    return implode("\n", $kept);
+}
+
+/**
+ * Filter custom menu text for the current user (called from core primary navigation).
+ *
+ * Capable users keep the text unchanged. Others lose hard-coded dashboard links that bypass capability checks.
+ *
+ * @param string $text
+ * @return string
+ */
+function local_dashboard_filter_custom_menu_items_text(string $text): string {
+    if (local_dashboard_user_can_view()) {
+        return $text;
+    }
+    return local_dashboard_strip_dashboard_from_custom_menu_text($text);
+}
+
+/**
+ * Strip dashboard links from site custom menu config for users without access.
+ *
+ * @return void
+ */
+function local_dashboard_sanitize_site_custom_menu(): void {
+    global $CFG;
+
+    if (!isloggedin() || isguestuser() || local_dashboard_user_can_view()) {
+        return;
+    }
+
+    $CFG->custommenuitems = local_dashboard_strip_dashboard_from_custom_menu_text($CFG->custommenuitems ?? '');
+}
+
+/**
  * Extend the main navigation drawer with the Exam Dashboard link.
  *
  * The link is added for site admins or users with {@see local/dashboard:view} in at least one company.
+ * Top navbar uses {@see \core\hook\navigation\primary_extend} instead of mutating custom menu config.
  *
  * @param global_navigation $nav
  * @return void
  */
 function local_dashboard_extend_navigation(global_navigation $nav): void {
-    global $CFG;
+    local_dashboard_sanitize_site_custom_menu();
 
     if (!local_dashboard_user_can_view()) {
         return;
@@ -1708,15 +1765,6 @@ function local_dashboard_extend_navigation(global_navigation $nav): void {
 
     $label = get_string('pluginname', 'local_dashboard');
     $indexurl = local_dashboard_index_url();
-    $urlpath = $indexurl->out_omit_querystring(false);
-
-    // IOMAD / Boost primary navigation drawer reads $CFG->custommenuitems (see core\navigation\output\primary).
-    if (!isset($CFG->dbunmodifiedcustommenuitems)) {
-        $CFG->dbunmodifiedcustommenuitems = $CFG->custommenuitems ?? '';
-    }
-    if (strpos($CFG->custommenuitems ?? '', '/local/dashboard/index.php') === false) {
-        $CFG->custommenuitems = rtrim($CFG->custommenuitems ?? '') . "\n{$label}|{$urlpath}\n";
-    }
 
     if (!$nav->find('local_dashboard', navigation_node::TYPE_CUSTOM)) {
         $node = $nav->add(
