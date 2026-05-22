@@ -1679,3 +1679,97 @@ function local_dashboard_extend_settings_navigation(settings_navigation $setting
     );
     $settingsnav->add_node($node);
 }
+
+/**
+ * Company courses where the current user may add a new quiz/assessment.
+ *
+ * @param int $companyid
+ * @return int[] Course ids, ascending.
+ */
+function local_dashboard_company_creatable_course_ids(int $companyid): array {
+    global $DB, $CFG;
+
+    $companycourseids = $DB->get_fieldset_sql(
+        "SELECT cc.courseid
+           FROM {company_course} cc
+          WHERE cc.companyid = :companyid
+       ORDER BY cc.courseid",
+        ['companyid' => $companyid]
+    );
+    if ($companycourseids === []) {
+        return [];
+    }
+
+    $creatable = [];
+    $usequickquiz = file_exists($CFG->dirroot . '/local/quickquiz/lib.php');
+    if ($usequickquiz) {
+        require_once($CFG->dirroot . '/local/quickquiz/lib.php');
+    }
+
+    foreach ($companycourseids as $courseid) {
+        $courseid = (int) $courseid;
+        if ($usequickquiz && local_quickquiz_can_create_in_course($courseid)) {
+            $creatable[] = $courseid;
+            continue;
+        }
+        if (!$usequickquiz) {
+            $ctx = context_course::instance($courseid, IGNORE_MISSING);
+            if ($ctx && has_capability('moodle/course:manageactivities', $ctx)) {
+                $creatable[] = $courseid;
+            }
+        }
+    }
+
+    return $creatable;
+}
+
+/**
+ * URL for the "+ New Assessment" control on the exam dashboard.
+ *
+ * Uses {@see local_quickquiz} when installed; otherwise falls back to core quiz modedit.
+ * When the company has more than one creatable course and no single assessment is
+ * selected, opens the course picker (no courseid in the URL).
+ *
+ * @param int $companyid Organisation filter.
+ * @param int $quizid Assessment filter (0 = all).
+ * @return moodle_url|null Null when the user cannot create a quiz in any company course.
+ */
+function local_dashboard_new_assessment_url(int $companyid, int $quizid): ?moodle_url {
+    global $DB, $CFG;
+
+    $creatable = local_dashboard_company_creatable_course_ids($companyid);
+    if ($creatable === []) {
+        return null;
+    }
+
+    $targetcourseid = 0;
+    if ($quizid > 0) {
+        $quizcourseid = (int) $DB->get_field('quiz', 'course', ['id' => $quizid], IGNORE_MISSING);
+        if ($quizcourseid > 0 && in_array($quizcourseid, $creatable, true)) {
+            $targetcourseid = $quizcourseid;
+        }
+    } else if (count($creatable) === 1) {
+        $targetcourseid = $creatable[0];
+    }
+
+    if (file_exists($CFG->dirroot . '/local/quickquiz/lib.php')) {
+        $quickquizparams = ['companyid' => $companyid];
+        if ($targetcourseid > 0) {
+            $quickquizparams['courseid'] = $targetcourseid;
+        }
+        return new moodle_url('/local/quickquiz/index.php', $quickquizparams);
+    }
+
+    // Fallback: full Moodle quiz activity form (single course only).
+    if (count($creatable) !== 1) {
+        return null;
+    }
+
+    return new moodle_url('/course/modedit.php', [
+        'add' => 'quiz',
+        'type' => '',
+        'course' => $creatable[0],
+        'section' => 0,
+        'sr' => 0,
+    ]);
+}

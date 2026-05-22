@@ -110,44 +110,8 @@ if (!isset($zerorisk)) {
 
 $statuscounts = local_dashboard_normalize_statuscounts($statuscounts ?? null);
 
-// CTA: prefer selected assessment course; fallback to first company course with manageactivities.
-$companycourseids = $DB->get_fieldset_sql(
-    "SELECT cc.courseid
-       FROM {company_course} cc
-      WHERE cc.companyid = :companyid
-   ORDER BY cc.courseid",
-    ['companyid' => $companyid]
-);
-if ($quizid > 0) {
-    $quizcourseid = (int) $DB->get_field('quiz', 'course', ['id' => $quizid], IGNORE_MISSING);
-    if ($quizcourseid > 0 && in_array($quizcourseid, $companycourseids, true)) {
-        $quizcoursectx = context_course::instance($quizcourseid, IGNORE_MISSING);
-        if ($quizcoursectx && has_capability('moodle/course:manageactivities', $quizcoursectx)) {
-            $newassessmenturl = new moodle_url('/course/modedit.php', [
-                'add' => 'quiz',
-                'type' => '',
-                'course' => $quizcourseid,
-                'section' => 0,
-                'sr' => 0,
-            ]);
-        }
-    }
-}
-if (!$newassessmenturl) {
-    foreach ($companycourseids as $courseid) {
-        $coursectx = context_course::instance((int) $courseid, IGNORE_MISSING);
-        if ($coursectx && has_capability('moodle/course:manageactivities', $coursectx)) {
-            $newassessmenturl = new moodle_url('/course/modedit.php', [
-                'add' => 'quiz',
-                'type' => '',
-                'course' => (int) $courseid,
-                'section' => 0,
-                'sr' => 0,
-            ]);
-            break;
-        }
-    }
-}
+// CTA: quick quiz creator when local_quickquiz is installed, else core modedit.
+$newassessmenturl = local_dashboard_new_assessment_url($companyid, $quizid);
 
 $pageurl = new moodle_url('/local/dashboard/index.php', [
     'timerange' => $timerange,
