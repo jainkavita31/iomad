@@ -121,23 +121,26 @@ Distinct attempts that match **either**:
 
 ### Integrity progress bar (three segments)
 
-The bar is a **percentage split across all attempts** in the time range (not the same buckets as the review pipeline). Let `attempts` = total attempts (minimum 1 for math).
+The bar is a **percentage split across all attempts** in the time range, using the **same alert rules** as the review pipeline and priority queue. Let `attempts` = total attempts (minimum 1 for math).
 
-1. **High-risk %** (`highriskpct`): `(failed / attempts) × 100`, capped at 100  
-   - `failed` = autosubmit attempts only (same as table column above)
+Per attempt, `alertcount` = proctor warning rows; `isautosubmit` from main proctor:
 
-2. **Warning %** (`orangepct`): derived from warned attempts  
-   - `warnedattempts` = distinct attempts with at least one non-deleted proctor warning  
-   - `warnrate = (warnedattempts / attempts) × 100`  
-   - Base: `min(100 − highriskpct, warnrate − highriskpct × 0.35)`  
-   - If there are warnings but no autosubmit and the segment would be tiny (`< 0.5%`), a small floor is applied: `min(18%, warnrate)`  
-   - Final value is capped so the three segments do not exceed 100%
+| Bucket | Rule |
+|--------|------|
+| **Cleared** (green) | `alertcount = 0` |
+| **Low** (counts toward orange) | `alertcount` 1–2 |
+| **Medium** (counts toward orange) | `alertcount` 3–5 and not high-risk |
+| **High-risk** (red) | `isautosubmit = 1` or `alertcount ≥ 6` |
 
-3. **Cleared %** (`clearedpct`): `100 − highriskpct − orangepct` (remainder shown as “cleared” in the footer)
+1. **Cleared %** (`clearedpct`): `(zero-risk attempts / attempts) × 100`
+2. **Warning %** (`orangepct`): `((low + medium attempts) / attempts) × 100`
+3. **High-risk %** (`highriskpct`): `(high-risk attempts / attempts) × 100`
 
-Bar colours: green = cleared, orange = warning band, red = high-risk (autosubmit share).
+The three segments sum to 100%.
 
-Footer labels: **X% cleared** (left), optional warning % (centre if `orangepct > 0.5`), **X% high-risk** (right).
+Bar colours: green = cleared, orange = low + medium, red = high-risk.
+
+Footer labels: **X% cleared** (left), **X% low/medium** (centre when `orangepct > 0.5`), **X% high-risk** (right). Orange segment tooltip: “Low/medium risk (1–5 alerts)”.
 
 ### Main dashboard vs detail page
 
@@ -152,7 +155,7 @@ Assessment health is included in the index cache payload (`assessmentstats`) whe
 ## Data freshness
 
 - Dashboard index data is cached for all-assessment view
-- Scheduled task refreshes cache every 12 hours
+- Scheduled task refreshes cache every 2 hours
 - "Sync now" triggers immediate refresh for current organisation
 - After a manager opens **Review** (via `proctor_review_entry.php`), the next load of the exam dashboard for that organisation still uses the cached snapshot for bulk metrics, but **recomputes and saves** review-sensitive fields only: review pipeline counts, backlog, and the priority-queue excerpt (`index_snapshot::compute_review_sensitive_slice()`), so backlog/queue update without a full cache rebuild
 

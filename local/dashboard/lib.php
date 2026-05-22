@@ -221,6 +221,7 @@ function local_dashboard_proctor_reviewattempts_link_html(
         return $label;
     }
     $modctx = context_module::instance($cm->id);
+    global $USER;
     $allowlink = has_capability('quizaccess/quizproctoring:quizproctoringoverallreport', $modctx)
         || local_dashboard_user_is_site_exam_admin();
     if (!$allowlink && $dashboardcompanyid !== null && $dashboardcompanyid > 0
@@ -230,7 +231,7 @@ function local_dashboard_proctor_reviewattempts_link_html(
             ])) {
         try {
             $companyctx = \core\context\company::instance($dashboardcompanyid);
-            $allowlink = has_capability('local/dashboard:view', $companyctx);
+            $allowlink = has_capability('local/dashboard:view', $companyctx, $USER->id, false);
         } catch (\Exception $e) {
             $allowlink = false;
         }
@@ -283,8 +284,7 @@ function local_dashboard_quizview_link_html(int $quizid, string $quizname, array
 }
 
 /**
- * Whether the current user is a site administrator who may use the exam dashboard for any company
- * without company {@see local/dashboard:view} (managers still need that capability).
+ * Site administrators always have exam dashboard access (all companies).
  *
  * @return bool
  */
@@ -293,15 +293,55 @@ function local_dashboard_user_is_site_exam_admin(): bool {
 }
 
 /**
- * Require exam dashboard access: company managers need local/dashboard:view; site admins bypass.
+ * Companies the current user may open on the exam dashboard.
+ *
+ * Site admins: all companies. Others: only where {@see local/dashboard:view} is assigned.
+ *
+ * @return array<int, string> company id => name
+ */
+function local_dashboard_get_viewable_company_options(): array {
+    global $DB;
+
+    if (local_dashboard_user_is_site_exam_admin()) {
+        return $DB->get_records_sql_menu(
+            "SELECT id, name
+               FROM {company}
+           ORDER BY name",
+            []
+        ) ?: [];
+    }
+
+    $options = [];
+    $companies = $DB->get_records_sql(
+        "SELECT id, name
+           FROM {company}
+       ORDER BY name"
+    );
+    foreach ($companies as $company) {
+        $cid = (int) $company->id;
+        try {
+            $cctx = \core\context\company::instance($cid);
+        } catch (\Exception $e) {
+            continue;
+        }
+        if (local_dashboard_user_has_view_in_company($cid, $cctx)) {
+            $options[$cid] = $company->name;
+        }
+    }
+    return $options;
+}
+
+/**
+ * Require exam dashboard access (site admins bypass; others need local/dashboard:view).
  *
  * @param int $companyid
  * @param \context $companycontext Company context instance.
  */
 function local_dashboard_require_dashboard_view(int $companyid, \context $companycontext): void {
-    if (!local_dashboard_user_has_view_in_company($companyid, $companycontext)) {
-        require_capability('local/dashboard:view', $companycontext);
+    if (local_dashboard_user_is_site_exam_admin()) {
+        return;
     }
+    require_capability('local/dashboard:view', $companycontext, null, false);
 }
 
 /**
@@ -315,41 +355,9 @@ function local_dashboard_bootstrap_report(): ?stdClass {
 
     $systemcontext = context_system::instance();
     $requestedcompanyid = optional_param('companyid', 0, PARAM_INT);
-    $canviewallcompanies = has_capability('moodle/site:config', $systemcontext);
 
-    if ($canviewallcompanies) {
-        $companyoptions = $DB->get_records_sql_menu(
-            "SELECT id, name
-               FROM {company}
-           ORDER BY name",
-            []
-        );
-    } else {
-        $companyoptions = $DB->get_records_sql_menu(
-            "SELECT DISTINCT c.id, c.name
-               FROM {company} c
-               JOIN {company_users} cu ON cu.companyid = c.id
-              WHERE cu.userid = :userid
-                AND cu.suspended = 0
-           ORDER BY c.name",
-            ['userid' => $USER->id]
-        );
-    }
-
-    // Only organisations where this user may view the exam dashboard.
-    $companyoptionswithview = [];
-    foreach ($companyoptions as $cid => $cname) {
-        $cid = (int) $cid;
-        try {
-            $cctx = \core\context\company::instance($cid);
-        } catch (\Exception $e) {
-            continue;
-        }
-        if (local_dashboard_user_has_view_in_company($cid, $cctx)) {
-            $companyoptionswithview[$cid] = $cname;
-        }
-    }
-    $companyoptions = $companyoptionswithview;
+    $canviewallcompanies = local_dashboard_user_is_site_exam_admin();
+    $companyoptions = local_dashboard_get_viewable_company_options();
 
     $companyid = local_dashboard_resolve_company_id($requestedcompanyid, $companyoptions);
 
@@ -667,6 +675,46 @@ function local_dashboard_note_proctor_review_access(int $candidateuserid, int $c
     local_dashboard_mark_index_review_merge_pending_for_quiz((int) $quizid);
 }
 
+/** Minimum proctor alert count for medium-risk (inclusive). */
+define('LOCAL_DASHBOARD_RISK_ALERTS_MEDIUM', 3);
+
+/** Minimum proctor alert count for high-risk when not auto-submitted (inclusive). */
+define('LOCAL_DASHBOARD_RISK_ALERTS_HIGH', 6);
+
+/**
+ * Whether an attempt is high-risk (priority queue and pipeline).
+ *
+ * @param int $alertcount Proctor alert rows for the attempt.
+ * @param int $isautosubmit 1 if auto-submitted.
+ * @return bool
+ */
+function local_dashboard_is_high_risk_attempt(int $alertcount, int $isautosubmit): bool {
+    return $isautosubmit === 1 || $alertcount >= LOCAL_DASHBOARD_RISK_ALERTS_HIGH;
+}
+
+/**
+ * Risk bucket for one attempt (aligned with review pipeline and priority queue).
+ *
+ * @param int $alertcount
+ * @param int $isautosubmit
+ * @return string zerorisk|low|medium|high
+ */
+function local_dashboard_attempt_risk_bucket(int $alertcount, int $isautosubmit): string {
+    if ($alertcount === 0) {
+        return 'zerorisk';
+    }
+    if (local_dashboard_is_high_risk_attempt($alertcount, $isautosubmit)) {
+        return 'high';
+    }
+    if ($alertcount >= LOCAL_DASHBOARD_RISK_ALERTS_MEDIUM) {
+        return 'medium';
+    }
+    if ($alertcount >= 1) {
+        return 'low';
+    }
+    return 'zerorisk';
+}
+
 /**
  * Severity + status language keys for a priority-queue row (status uses review log when applicable).
  *
@@ -680,13 +728,13 @@ function local_dashboard_queue_row_status_keys(stdClass $row): array {
     $isautosubmit = (int) $row->isautosubmit;
     $reviewed = !empty($row->reviewedat);
 
-    // Same thresholds as review pipeline: high / medium / low risk pending.
+    $bucket = local_dashboard_attempt_risk_bucket($alerts, $isautosubmit);
     $severitykey = 'severitylow';
-    if ($isautosubmit === 1 || $alerts >= 6) {
+    if ($bucket === 'high') {
         $severitykey = 'severityhighrisk';
-    } else if ($alerts >= 3) {
+    } else if ($bucket === 'medium') {
         $severitykey = 'severitymedium';
-    } else if ($alerts >= 1) {
+    } else if ($bucket === 'low') {
         $severitykey = 'severitylow';
     }
 
@@ -1486,15 +1534,48 @@ function local_dashboard_fetch_assessment_stats(
             $params
         );
 
-        $at = max(1, $attempts);
-        $highriskpct = min(100.0, ($failed / $at) * 100.0);
-        $warnrate = min(100.0, ($warnedattempts / $at) * 100.0);
-        $orangepct = max(0.0, min(100.0 - $highriskpct, $warnrate - $highriskpct * 0.35));
-        if ($orangepct < 0.5 && $warnedattempts > 0 && $failed === 0) {
-            $orangepct = min(18.0, ($warnedattempts / $at) * 100.0);
+        $attemptriskrows = $DB->get_records_sql(
+            "SELECT qa.id AS attemptid,
+                    COALESCE(MAX(qmp.isautosubmit), 0) AS isautosubmit,
+                    SUM(CASE WHEN pd.deleted = 0 AND pd.status != '' THEN 1 ELSE 0 END) AS warningcount
+               FROM {quiz_attempts} qa
+               LEFT JOIN {quizaccess_main_proctor} qmp
+                      ON qmp.attemptid = qa.id
+                     AND qmp.quizid = qa.quiz
+                     AND qmp.deleted = 0
+               LEFT JOIN {quizaccess_proctor_data} pd
+                      ON pd.attemptid = qa.id
+                     AND pd.quizid = qa.quiz
+              WHERE qa.quiz = :quizid
+                AND qa.preview = 0
+                AND qa.timestart >= :fromtime
+           GROUP BY qa.id",
+            $params
+        );
+        $zeroriskcnt = 0;
+        $lowriskcnt = 0;
+        $mediumriskcnt = 0;
+        $highriskcnt = 0;
+        foreach ($attemptriskrows as $attemptrow) {
+            switch (local_dashboard_attempt_risk_bucket((int) $attemptrow->warningcount, (int) $attemptrow->isautosubmit)) {
+                case 'high':
+                    $highriskcnt++;
+                    break;
+                case 'medium':
+                    $mediumriskcnt++;
+                    break;
+                case 'low':
+                    $lowriskcnt++;
+                    break;
+                default:
+                    $zeroriskcnt++;
+            }
         }
-        $orangepct = min($orangepct, max(0.0, 100.0 - $highriskpct));
-        $clearedpct = max(0.0, 100.0 - $highriskpct - $orangepct);
+
+        $at = max(1, $attempts);
+        $clearedpct = ($zeroriskcnt / $at) * 100.0;
+        $orangepct = (($lowriskcnt + $mediumriskcnt) / $at) * 100.0;
+        $highriskpct = ($highriskcnt / $at) * 100.0;
         $completedpct = $at > 0 ? (($finished / $at) * 100.0) : 0.0;
 
         $assessmentstats[] = (object) [
@@ -1560,57 +1641,25 @@ function local_dashboard_index_url(): moodle_url {
 }
 
 function local_dashboard_first_company_with_dashboard_view(): int {
-    global $DB, $USER;
-
-    $systemcontext = context_system::instance();
-    $canall = has_capability('moodle/site:config', $systemcontext);
-    if ($canall) {
-        $companyoptions = $DB->get_records_sql_menu(
-            "SELECT id, name
-               FROM {company}
-           ORDER BY name",
-            []
-        );
-    } else {
-        $companyoptions = $DB->get_records_sql_menu(
-            "SELECT DISTINCT c.id, c.name
-               FROM {company} c
-               JOIN {company_users} cu ON cu.companyid = c.id
-              WHERE cu.userid = :userid
-                AND cu.suspended = 0
-           ORDER BY c.name",
-            ['userid' => $USER->id]
-        ) ?: [];
-    }
-
-    $candidates = [];
-    foreach ($companyoptions as $cid => $ignored) {
-        $cid = (int) $cid;
-        try {
-            $ctx = \core\context\company::instance($cid);
-        } catch (\Exception $e) {
-            continue;
-        }
-        if (local_dashboard_user_has_view_in_company($cid, $ctx)) {
-            $candidates[] = $cid;
-        }
-    }
-    if ($candidates === []) {
+    $companyoptions = local_dashboard_get_viewable_company_options();
+    if ($companyoptions === []) {
         return 0;
     }
-
-    $options = array_fill_keys($candidates, '');
-    return local_dashboard_resolve_company_id(0, $options);
+    return local_dashboard_resolve_company_id(0, $companyoptions);
 }
 
 /**
- * Whether the user may view the exam dashboard for this company (manager role) or as site admin.
+ * Whether the user may view the exam dashboard for this company.
+ *
+ * Site admins: always. Others: explicit {@see local/dashboard:view} only.
  *
  * @param int $companyid
  * @param \context|null $companycontext Optional pre-loaded company context.
  * @return bool
  */
 function local_dashboard_user_has_view_in_company(int $companyid, ?\context $companycontext = null): bool {
+    global $USER;
+
     if ($companyid < 1) {
         return false;
     }
@@ -1624,14 +1673,11 @@ function local_dashboard_user_has_view_in_company(int $companyid, ?\context $com
             return false;
         }
     }
-    if (class_exists('iomad')) {
-        return iomad::has_capability('local/dashboard:view', $companycontext, $companyid);
-    }
-    return has_capability('local/dashboard:view', $companycontext);
+    return has_capability('local/dashboard:view', $companycontext, $USER->id, false);
 }
 
 /**
- * Whether the current user may view the exam dashboard in any company.
+ * Whether the current user may see the exam dashboard menu and open the plugin.
  *
  * @return bool
  */
@@ -1639,14 +1685,16 @@ function local_dashboard_user_can_view(): bool {
     if (!isloggedin() || isguestuser()) {
         return false;
     }
+    if (local_dashboard_user_is_site_exam_admin()) {
+        return true;
+    }
     return local_dashboard_first_company_with_dashboard_view() > 0;
 }
 
 /**
  * Extend the main navigation drawer with the Exam Dashboard link.
  *
- * The link is added when the user may view the exam dashboard: {@see local/dashboard:view}
- * in at least one company, or {@see moodle/site:config} at system level (site administrators).
+ * The link is added for site admins or users with {@see local/dashboard:view} in at least one company.
  *
  * @param global_navigation $nav
  * @return void

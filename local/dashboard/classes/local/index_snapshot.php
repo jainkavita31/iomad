@@ -105,14 +105,18 @@ final class index_snapshot {
         foreach ($attemptriskrows as $attemptrow) {
             $warningcount = (int) $attemptrow->warningcount;
             $isautosubmit = (int) $attemptrow->isautosubmit;
-            if ($warningcount === 0) {
-                $zerorisk++;
-            } else if ($isautosubmit || $warningcount >= 6) {
-                $highriskpending++;
-            } else if ($warningcount >= 3) {
-                $mediumriskpending++;
-            } else if ($warningcount >= 1) {
-                $lowriskpending++;
+            switch (\local_dashboard_attempt_risk_bucket($warningcount, $isautosubmit)) {
+                case 'high':
+                    $highriskpending++;
+                    break;
+                case 'medium':
+                    $mediumriskpending++;
+                    break;
+                case 'low':
+                    $lowriskpending++;
+                    break;
+                default:
+                    $zerorisk++;
             }
         }
         $reviewbacklog = $lowriskpending + $mediumriskpending + $highriskpending;

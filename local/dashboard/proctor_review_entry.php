@@ -18,6 +18,7 @@ require_once(__DIR__ . '/../../config.php');
 require_once(__DIR__ . '/lib.php');
 
 require_login();
+global $USER;
 
 $userid = required_param('userid', PARAM_INT);
 $quizid = required_param('quizid', PARAM_INT);
@@ -33,7 +34,7 @@ $companyids = $DB->get_fieldset_select('company_course', 'companyid', 'courseid 
 foreach ($companyids as $cid) {
     try {
         $cctx = \core\context\company::instance((int) $cid);
-        if (has_capability('local/dashboard:view', $cctx)) {
+        if (has_capability('local/dashboard:view', $cctx, $USER->id, false)) {
             $canviewdashboard = true;
             break;
         }
@@ -41,8 +42,7 @@ foreach ($companyids as $cid) {
         continue;
     }
 }
-$canadmin = local_dashboard_user_is_site_exam_admin();
-if (!$canreport && !$canviewdashboard && !$canadmin) {
+if (!$canreport && !$canviewdashboard && !local_dashboard_user_is_site_exam_admin()) {
     require_capability('quizaccess/quizproctoring:quizproctoringoverallreport', $modctx);
 }
 

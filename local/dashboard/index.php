@@ -365,7 +365,12 @@ foreach ($assessmenthealthcards as $row) {
     echo html_writer::end_div();
     echo html_writer::start_div('ld-assessment-progress');
     echo html_writer::div('', 'ld-assessment-progress-clean', ['style' => 'width:' . format_float($row->clearedpct, 2) . '%']);
-    echo html_writer::div('', 'ld-assessment-progress-warn', ['style' => 'width:' . format_float($row->orangepct, 2) . '%']);
+    $warnattrs = [
+        'style' => 'width:' . format_float($row->orangepct, 2) . '%',
+        'title' => get_string('progresslowmedium', 'local_dashboard'),
+        'aria-label' => get_string('progresslowmedium', 'local_dashboard'),
+    ];
+    echo html_writer::div('', 'ld-assessment-progress-warn', $warnattrs);
     echo html_writer::div('', 'ld-assessment-progress-risk', ['style' => 'width:' . format_float($row->highriskpct, 2) . '%']);
     echo html_writer::end_div();
     echo html_writer::start_div('ld-assessment-footer');
@@ -374,7 +379,9 @@ foreach ($assessmenthealthcards as $row) {
         'ld-assessment-foot-left'
     );
     echo html_writer::div(
-        $row->orangepct > 0.5 ? format_float($row->orangepct, 1) . '%' : '',
+        $row->orangepct > 0.5
+            ? get_string('pctlowmedium', 'local_dashboard', format_float($row->orangepct, 1))
+            : '',
         'ld-assessment-foot-mid'
     );
     echo html_writer::div(

@@ -20,7 +20,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once(__DIR__ . '/../local/index_snapshot.php');
 
 /**
- * Scheduled every 12 hours (see db/tasks.php).
+ * Scheduled every 2 hours (see db/tasks.php).
  */
 class refresh_index_cache extends \core\task\scheduled_task {
 

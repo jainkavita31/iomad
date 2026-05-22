@@ -86,7 +86,7 @@ $string['tablefailed'] = 'Proctor failed';
 $string['tablescore'] = 'Average score';
 $string['nofiltereddata'] = 'No data found for selected filters.';
 $string['nocompanyavailable'] = 'No company is available for this user.';
-$string['nodashboardaccess'] = 'You do not have permission to view the exam dashboard for any organisation you can access.';
+$string['nodashboardaccess'] = 'You do not have the View exam dashboard capability (local/dashboard:view) for any organisation.';
 $string['proctorpluginmissing'] = 'ProctorLink tables are not available. Please install/enable quizaccess_quizproctoring.';
 
 $string['priorityqueue'] = 'Priority review queue';
@@ -105,7 +105,9 @@ $string['statcandidates'] = 'Candidates';
 $string['statcompleted'] = 'Completed';
 $string['statflagged'] = 'Flagged';
 $string['pctcleared'] = '{$a}% cleared';
+$string['pctlowmedium'] = '{$a}% low/medium';
 $string['pcthighrisk'] = '{$a}% high-risk';
+$string['progresslowmedium'] = 'Low/medium risk (1–5 alerts)';
 $string['reviewarrow'] = 'Review →';
 $string['exportrankedreport'] = 'Export ranked score report';
 $string['exportrankedreportdesc'] = 'Download candidate scores for the selected filters';
@@ -164,7 +166,7 @@ $string['assessmentslistall'] = 'All proctored assessments (not filtered by sing
 $string['assessmentsdetailtableintro'] = '';
 $string['tablecompletedpct'] = 'Completed %';
 $string['tablepctcleared'] = 'Cleared %';
-$string['tablepctwarning'] = 'Warning %';
+$string['tablepctwarning'] = 'Low/medium %';
 $string['tablepcthighriskcol'] = 'High-risk %';
 
 $string['syncnow'] = 'Sync now';

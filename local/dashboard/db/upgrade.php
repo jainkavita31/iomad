@@ -79,5 +79,15 @@ function xmldb_local_dashboard_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026043033, 'local', 'dashboard');
     }
 
+    if ($oldversion < 2026043064) {
+        $task = \core\task\manager::get_scheduled_task('local_dashboard\task\refresh_index_cache');
+        if ($task) {
+            $task->set_hour('*/2');
+            $task->set_minute('5');
+            \core\task\manager::configure_scheduled_task($task);
+        }
+        upgrade_plugin_savepoint(true, 2026043064, 'local', 'dashboard');
+    }
+
     return true;
 }
