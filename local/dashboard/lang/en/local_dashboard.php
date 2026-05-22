@@ -86,6 +86,7 @@ $string['tablefailed'] = 'Proctor failed';
 $string['tablescore'] = 'Average score';
 $string['nofiltereddata'] = 'No data found for selected filters.';
 $string['nocompanyavailable'] = 'No company is available for this user.';
+$string['invalidcompany'] = 'Invalid or unknown organisation.';
 $string['nodashboardaccess'] = 'You do not have the View exam dashboard capability (local/dashboard:view) for any organisation.';
 $string['proctorpluginmissing'] = 'ProctorLink tables are not available. Please install/enable quizaccess_quizproctoring.';
 

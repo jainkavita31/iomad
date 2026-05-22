@@ -22,4 +22,10 @@ $callbacks = [
         'callback' => \local_dashboard\hook_callbacks::class . '::primary_extend',
         'priority' => 0,
     ],
+    [
+        'hook' => \core\hook\output\before_standard_top_of_body_html_generation::class,
+        'callback' => \local_dashboard\hook_callbacks::class .
+            '::before_standard_top_of_body_html_generation',
+        'priority' => 0,
+    ],
 ];

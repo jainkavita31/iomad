@@ -30,6 +30,9 @@ use local_dashboard\local\index_snapshot;
 
 require_login();
 
+$requestedcompanyid = optional_param('companyid', 0, PARAM_INT);
+local_dashboard_require_page_access($requestedcompanyid);
+
 $r = local_dashboard_bootstrap_report();
 if ($r === null) {
     exit;

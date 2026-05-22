@@ -30,17 +30,41 @@ class hook_callbacks {
      * @return void
      */
     public static function primary_extend(\core\hook\navigation\primary_extend $hook): void {
-        if (!local_dashboard_user_can_view()) {
+        \local_dashboard_ensure_site_custom_menu_link();
+
+        if (!\local_dashboard_user_can_view()) {
             return;
         }
 
-        $hook->get_primaryview()->add(
+        $primaryview = $hook->get_primaryview();
+        if ($primaryview->find('local_dashboard', \navigation_node::TYPE_CUSTOM)) {
+            return;
+        }
+
+        $primaryview->add(
             get_string('pluginname', 'local_dashboard'),
-            local_dashboard_index_url(),
+            \local_dashboard_index_url(),
             \navigation_node::TYPE_CUSTOM,
             null,
             'local_dashboard',
             new \pix_icon('i/report', '')
         );
+    }
+
+    /**
+     * Restore $CFG->custommenuitems after navigation has been rendered.
+     *
+     * @param \core\hook\output\before_standard_top_of_body_html_generation $hook
+     * @return void
+     */
+    public static function before_standard_top_of_body_html_generation(
+        \core\hook\output\before_standard_top_of_body_html_generation $hook
+    ): void {
+        global $CFG;
+
+        if (isset($CFG->dbunmodifiedcustommenuitems)) {
+            $CFG->custommenuitems = $CFG->dbunmodifiedcustommenuitems;
+            unset($CFG->dbunmodifiedcustommenuitems);
+        }
     }
 }

@@ -95,5 +95,29 @@ function xmldb_local_dashboard_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026043065, 'local', 'dashboard');
     }
 
+    if ($oldversion < 2026043066) {
+        purge_all_caches();
+        upgrade_plugin_savepoint(true, 2026043066, 'local', 'dashboard');
+    }
+
+    if ($oldversion < 2026043067) {
+        upgrade_plugin_savepoint(true, 2026043067, 'local', 'dashboard');
+    }
+
+    if ($oldversion < 2026043068) {
+        purge_all_caches();
+        upgrade_plugin_savepoint(true, 2026043068, 'local', 'dashboard');
+    }
+
+    if ($oldversion < 2026043069) {
+        purge_all_caches();
+        upgrade_plugin_savepoint(true, 2026043069, 'local', 'dashboard');
+    }
+
+    if ($oldversion < 2026043070) {
+        purge_all_caches();
+        upgrade_plugin_savepoint(true, 2026043070, 'local', 'dashboard');
+    }
+
     return true;
 }

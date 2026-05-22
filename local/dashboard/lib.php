@@ -284,12 +284,26 @@ function local_dashboard_quizview_link_html(int $quizid, string $quizname, array
 }
 
 /**
- * Site administrators always have exam dashboard access (all companies).
+ * Site-wide exam dashboard administrators (all companies).
+ *
+ * Moodle site admins, system-level site configurators, and IOMAD multi-company admins
+ * ({@see block/iomad_company_admin:company_add} at system). All checks use doanything=false.
  *
  * @return bool
  */
 function local_dashboard_user_is_site_exam_admin(): bool {
-    return has_capability('moodle/site:config', context_system::instance());
+    global $USER;
+
+    if (is_siteadmin($USER)) {
+        return true;
+    }
+
+    $systemcontext = context_system::instance();
+    if (has_capability('moodle/site:config', $systemcontext, $USER->id, false)) {
+        return true;
+    }
+
+    return has_capability('block/iomad_company_admin:company_add', $systemcontext, $USER->id, false);
 }
 
 /**
@@ -332,7 +346,32 @@ function local_dashboard_get_viewable_company_options(): array {
 }
 
 /**
- * Require exam dashboard access (site admins bypass; others need local/dashboard:view).
+ * Home page URL for the current user (respects Moodle home page preference).
+ *
+ * @return \moodle_url
+ */
+function local_dashboard_home_url(): moodle_url {
+    switch (get_home_page()) {
+        case HOMEPAGE_MY:
+            return new moodle_url('/my/');
+        case HOMEPAGE_MYCOURSES:
+            return new moodle_url('/my/courses.php');
+        default:
+            return new moodle_url('/');
+    }
+}
+
+/**
+ * Send users without exam dashboard access to their home page.
+ *
+ * @return void
+ */
+function local_dashboard_redirect_unauthorised_to_home(): void {
+    redirect(local_dashboard_home_url());
+}
+
+/**
+ * Require exam dashboard access for a company (site admins bypass).
  *
  * @param int $companyid
  * @param \context $companycontext Company context instance.
@@ -341,7 +380,32 @@ function local_dashboard_require_dashboard_view(int $companyid, \context $compan
     if (local_dashboard_user_is_site_exam_admin()) {
         return;
     }
-    require_capability('local/dashboard:view', $companycontext, null, false);
+
+    if (!local_dashboard_user_has_view_in_company($companyid, $companycontext)) {
+        local_dashboard_redirect_unauthorised_to_home();
+    }
+}
+
+/**
+ * Block page access when the user has no exam dashboard permission.
+ *
+ * @param int $requestedcompanyid companyid from the URL, if any.
+ * @return void
+ */
+function local_dashboard_require_page_access(int $requestedcompanyid = 0): void {
+    if (local_dashboard_user_can_view()) {
+        if ($requestedcompanyid > 0 && !local_dashboard_user_is_site_exam_admin()) {
+            try {
+                $companycontext = \core\context\company::instance($requestedcompanyid);
+            } catch (\Exception $e) {
+                local_dashboard_redirect_unauthorised_to_home();
+            }
+            local_dashboard_require_dashboard_view($requestedcompanyid, $companycontext);
+        }
+        return;
+    }
+
+    local_dashboard_redirect_unauthorised_to_home();
 }
 
 /**
@@ -356,22 +420,24 @@ function local_dashboard_bootstrap_report(): ?stdClass {
     $systemcontext = context_system::instance();
     $requestedcompanyid = optional_param('companyid', 0, PARAM_INT);
 
+    local_dashboard_require_page_access($requestedcompanyid);
+
     $canviewallcompanies = local_dashboard_user_is_site_exam_admin();
     $companyoptions = local_dashboard_get_viewable_company_options();
 
     $companyid = local_dashboard_resolve_company_id($requestedcompanyid, $companyoptions);
 
     if (!$companyid) {
+        if (!local_dashboard_user_can_view()) {
+            local_dashboard_redirect_unauthorised_to_home();
+        }
         $PAGE->set_url('/local/dashboard/index.php');
         $PAGE->set_context($systemcontext);
         $PAGE->set_pagelayout('report');
         $PAGE->set_title(get_string('heading', 'local_dashboard'));
         $PAGE->set_heading(get_string('heading', 'local_dashboard'));
         echo $OUTPUT->header();
-        $msg = empty($companyoptions)
-            ? get_string('nodashboardaccess', 'local_dashboard')
-            : get_string('nocompanyavailable', 'local_dashboard');
-        echo $OUTPUT->notification($msg, 'warning');
+        echo $OUTPUT->notification(get_string('nocompanyavailable', 'local_dashboard'), 'warning');
         echo $OUTPUT->footer();
         return null;
     }
@@ -1718,18 +1784,56 @@ function local_dashboard_strip_dashboard_from_custom_menu_text(string $text): st
 }
 
 /**
+ * Append the exam dashboard link to custom menu text when missing.
+ *
+ * Used for both site and IOMAD company custom menus (company menu replaces site config).
+ *
+ * @param string $text
+ * @return string
+ */
+function local_dashboard_append_dashboard_to_custom_menu_text(string $text): string {
+    if (strpos($text, '/local/dashboard/') !== false) {
+        return $text;
+    }
+
+    $label = get_string('pluginname', 'local_dashboard');
+    $path = local_dashboard_index_url()->out_omit_querystring(false);
+
+    return rtrim($text) . "\n{$label}|{$path}\n";
+}
+
+/**
  * Filter custom menu text for the current user (called from core primary navigation).
  *
- * Capable users keep the text unchanged. Others lose hard-coded dashboard links that bypass capability checks.
+ * Capable users get the exam dashboard link appended when missing. Others have dashboard lines removed.
  *
  * @param string $text
  * @return string
  */
 function local_dashboard_filter_custom_menu_items_text(string $text): string {
-    if (local_dashboard_user_can_view()) {
-        return $text;
+    if (!local_dashboard_user_can_view()) {
+        return local_dashboard_strip_dashboard_from_custom_menu_text($text);
     }
-    return local_dashboard_strip_dashboard_from_custom_menu_text($text);
+    return local_dashboard_append_dashboard_to_custom_menu_text($text);
+}
+
+/**
+ * Ensure exam dashboard appears in $CFG->custommenuitems for this request (site menu fallback).
+ *
+ * @return void
+ */
+function local_dashboard_ensure_site_custom_menu_link(): void {
+    global $CFG;
+
+    if (!isloggedin() || isguestuser() || !local_dashboard_user_can_view()) {
+        return;
+    }
+
+    if (!isset($CFG->dbunmodifiedcustommenuitems)) {
+        $CFG->dbunmodifiedcustommenuitems = $CFG->custommenuitems ?? '';
+    }
+
+    $CFG->custommenuitems = local_dashboard_append_dashboard_to_custom_menu_text($CFG->custommenuitems ?? '');
 }
 
 /**
@@ -1751,13 +1855,14 @@ function local_dashboard_sanitize_site_custom_menu(): void {
  * Extend the main navigation drawer with the Exam Dashboard link.
  *
  * The link is added for site admins or users with {@see local/dashboard:view} in at least one company.
- * Top navbar uses {@see \core\hook\navigation\primary_extend} instead of mutating custom menu config.
+ * Top navbar: {@see \core\hook\navigation\primary_extend}, custom menu filter, and site menu fallback.
  *
  * @param global_navigation $nav
  * @return void
  */
 function local_dashboard_extend_navigation(global_navigation $nav): void {
     local_dashboard_sanitize_site_custom_menu();
+    local_dashboard_ensure_site_custom_menu_link();
 
     if (!local_dashboard_user_can_view()) {
         return;
