@@ -1715,9 +1715,56 @@ function local_dashboard_first_company_with_dashboard_view(): int {
 }
 
 /**
+ * Role shortnames that may use the exam dashboard (matches db/access.php archetypes).
+ *
+ * @return string[]
+ */
+function local_dashboard_allowed_company_role_shortnames(): array {
+    return [
+        'companymanager',
+        'companydepartmentmanager',
+        'clientadministrator',
+        'clientreporter',
+        'companyreporter',
+    ];
+}
+
+/**
+ * Whether the user holds an IOMAD admin/reporter role in this company (not teacher/student).
+ *
+ * @param int $companyid
+ * @param \context|null $companycontext Optional pre-loaded company context.
+ * @return bool
+ */
+function local_dashboard_user_is_company_dashboard_actor(int $companyid, ?\context $companycontext = null): bool {
+    global $USER;
+
+    if ($companyid < 1 || empty($USER->id)) {
+        return false;
+    }
+
+    if ($companycontext === null) {
+        try {
+            $companycontext = \core\context\company::instance($companyid);
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    $allowed = array_fill_keys(local_dashboard_allowed_company_role_shortnames(), true);
+    foreach (get_user_roles($companycontext, $USER->id, false) as $role) {
+        if (!empty($allowed[$role->shortname])) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
  * Whether the user may view the exam dashboard for this company.
  *
- * Site admins: always. Others: explicit {@see local/dashboard:view} only.
+ * Site admins: always. Others: {@see local/dashboard:view} and an IOMAD manager/reporter role.
  *
  * @param int $companyid
  * @param \context|null $companycontext Optional pre-loaded company context.
@@ -1738,6 +1785,9 @@ function local_dashboard_user_has_view_in_company(int $companyid, ?\context $com
         } catch (\Exception $e) {
             return false;
         }
+    }
+    if (!local_dashboard_user_is_company_dashboard_actor($companyid, $companycontext)) {
+        return false;
     }
     return has_capability('local/dashboard:view', $companycontext, $USER->id, false);
 }

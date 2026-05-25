@@ -30,11 +30,13 @@ class hook_callbacks {
      * @return void
      */
     public static function primary_extend(\core\hook\navigation\primary_extend $hook): void {
-        \local_dashboard_ensure_site_custom_menu_link();
+        \local_dashboard_sanitize_site_custom_menu();
 
         if (!\local_dashboard_user_can_view()) {
             return;
         }
+
+        \local_dashboard_ensure_site_custom_menu_link();
 
         $primaryview = $hook->get_primaryview();
         if ($primaryview->find('local_dashboard', \navigation_node::TYPE_CUSTOM)) {
