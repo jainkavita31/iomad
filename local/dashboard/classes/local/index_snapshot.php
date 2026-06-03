@@ -18,6 +18,8 @@ namespace local_dashboard\local;
 
 defined('MOODLE_INTERNAL') || die();
 
+require_once(__DIR__ . '/../../lib.php');
+
 /**
  * Build and persist dashboard aggregates for fast index loads (quizid = all only).
  */
