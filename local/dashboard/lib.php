@@ -849,6 +849,52 @@ function local_dashboard_require_datatables(): void {
 }
 
 /**
+ * When the company dropdown changes, reload filters so the assessment list matches the org.
+ *
+ * Resets assessment to "All assessments" and submits the filter form (site admins only).
+ *
+ * @param \stdClass $r Bootstrap object from {@see local_dashboard_bootstrap_report()}.
+ */
+function local_dashboard_init_filter_behaviours(stdClass $r): void {
+    global $PAGE;
+
+    static $registered = false;
+    if ($registered || empty($r->show_company_selector)) {
+        return;
+    }
+    $registered = true;
+
+    $PAGE->requires->js_init_code(<<<'JS'
+(function() {
+    function initLocalDashboardCompanyFilter() {
+        var company = document.getElementById('id_companyid');
+        if (!company || company.dataset.ldCompanyBound === '1') {
+            return;
+        }
+        company.dataset.ldCompanyBound = '1';
+        company.addEventListener('change', function() {
+            var form = company.closest('form.ld-filters');
+            if (!form) {
+                return;
+            }
+            var quiz = document.getElementById('id_quizid');
+            if (quiz) {
+                quiz.value = '0';
+            }
+            form.submit();
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initLocalDashboardCompanyFilter);
+    } else {
+        initLocalDashboardCompanyFilter();
+    }
+})();
+JS
+    );
+}
+
+/**
  * Initialise a client-side DataTable on a detail-page table.
  *
  * Call {@see local_dashboard_require_datatables()} before $OUTPUT->header(); this function

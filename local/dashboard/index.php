@@ -127,6 +127,7 @@ $PAGE->set_pagelayout('report');
 $PAGE->set_title($companyname);
 $PAGE->set_heading('');
 $PAGE->requires->css(new moodle_url('/local/dashboard/styles.css'));
+local_dashboard_init_filter_behaviours($r);
 $PAGE->requires->js_init_code(<<<'JS'
 (function() {
     var btn = document.getElementById('ld-sync-now');

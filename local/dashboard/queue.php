@@ -51,6 +51,7 @@ $PAGE->set_pagelayout('report');
 $PAGE->set_title(get_string('queuepagetitle', 'local_dashboard'));
 $PAGE->set_heading(get_string('queuepagetitle', 'local_dashboard'));
 $PAGE->requires->css(new moodle_url('/local/dashboard/styles.css'));
+local_dashboard_init_filter_behaviours($r);
 local_dashboard_require_datatables();
 
 $queueparams = $baseparams;
