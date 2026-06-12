@@ -1312,6 +1312,9 @@ function local_dashboard_action_view_url(\stdClass $r, string $view): moodle_url
 /**
  * Ranked best score per user per quiz (performers and action scores view).
  *
+ * Sort order: best score (highest first), then fewer proctor alerts, then fewer attempts,
+ * then surname and given name for a stable list when still tied.
+ *
  * @param string $quizsql SQL fragment with optional quiz filter.
  * @param array $baseparams Params including companyid, fromtime, optional quizid.
  * @param int $limitfrom First row offset (used when $limitnum > 0).
@@ -1356,7 +1359,12 @@ function local_dashboard_fetch_ranked_scores_rows(
             AND qa.timestart >= :fromtime
             $quizsql
        GROUP BY qa.userid, u.firstname, u.lastname, q.id, q.name, c.fullname
-       ORDER BY bestscore DESC";
+       ORDER BY bestscore DESC,
+                alertcount ASC,
+                attemptcount ASC,
+                u.lastname ASC,
+                u.firstname ASC,
+                qa.userid ASC";
 
     // Do not use get_records_sql(): its first column becomes the array key; userid repeats across
     // quizzes when quizid=0, so rows overwrite and most rankings disappear.

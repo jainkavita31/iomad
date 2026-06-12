@@ -115,7 +115,7 @@ $string['exportrankedreportdesc'] = 'Download candidate scores for the selected 
 $string['downloadactivityreport'] = 'Download suspicious activity report';
 $string['downloadactivityreportdesc'] = 'All assessments — sorted by alert count';
 $string['topperformers'] = 'Top performers';
-$string['topperformersdesc'] = 'Candidates ranked by highest score';
+$string['topperformersdesc'] = 'Ranked by highest score; ties broken by fewer alerts, then fewer attempts';
 $string['rank'] = '#';
 $string['candidate'] = 'Candidate';
 $string['score'] = 'Score';
@@ -171,6 +171,7 @@ $string['tablepctwarning'] = 'Low/medium %';
 $string['tablepcthighriskcol'] = 'High-risk %';
 
 $string['syncnow'] = 'Sync now';
+$string['syncing'] = 'Syncing…';
 $string['indexsynctopdesc'] = 'Need the latest numbers? Sync now to refresh this dashboard with current proctoring data.';
 $string['indexcachehint'] = 'Dashboard numbers load from cache (refreshed every 2 hours automatically). Use Sync now for live data.';
 $string['indexcacheasof'] = 'Cached data as of {$a}';
@@ -184,7 +185,7 @@ $string['privacy:metadata:indexcachetimerange'] = 'Time window in days (e.g. 7, 
 $string['privacy:metadata:indexcachequiz'] = 'Quiz filter (0 = all assessments)';
 $string['privacy:metadata:indexcachetimemodified'] = 'When this snapshot was built';
 
-$string['actionpage_title_highrisk'] = 'High-risk sessions';
+$string['actionpage_title_highrisk'] = 'High-risk pending sessions';
 $string['actionpage_title_spike'] = 'Alert spike — assessments to review';
 $string['actionpage_title_lowrisk'] = 'Low-risk pending sessions';
 $string['actionpage_title_scores'] = 'Ranked scores — full detail';

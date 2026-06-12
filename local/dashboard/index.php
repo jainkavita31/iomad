@@ -127,6 +127,26 @@ $PAGE->set_pagelayout('report');
 $PAGE->set_title($companyname);
 $PAGE->set_heading('');
 $PAGE->requires->css(new moodle_url('/local/dashboard/styles.css'));
+$PAGE->requires->js_init_code(<<<'JS'
+(function() {
+    var btn = document.getElementById('ld-sync-now');
+    if (!btn) {
+        return;
+    }
+    btn.addEventListener('click', function() {
+        if (btn.classList.contains('ld-sync-now--loading')) {
+            return;
+        }
+        btn.classList.add('ld-sync-now--loading');
+        btn.setAttribute('aria-busy', 'true');
+        var text = btn.querySelector('.ld-sync-now-text');
+        if (text) {
+            text.textContent = btn.getAttribute('data-loading-text') || 'Syncing…';
+        }
+    });
+}());
+JS
+);
 
 echo $OUTPUT->header();
 echo html_writer::start_div('local-dashboard ld-main-page');
@@ -138,7 +158,17 @@ if (optional_param('dashboardsynced', 0, PARAM_INT)) {
 $syncurl = new moodle_url('/local/dashboard/sync.php', array_merge(local_dashboard_filter_url_params($r), ['sesskey' => sesskey()]));
 echo html_writer::start_div('ld-cache-sync-row');
 echo html_writer::span(get_string('indexsynctopdesc', 'local_dashboard'), 'ld-cache-hint');
-echo html_writer::link($syncurl, get_string('syncnow', 'local_dashboard'), ['class' => 'btn btn-secondary ld-sync-now']);
+$syncbuttoncontent = html_writer::span('', 'ld-sync-now-spinner', ['aria-hidden' => 'true'])
+    . html_writer::span(get_string('syncnow', 'local_dashboard'), 'ld-sync-now-text');
+echo html_writer::link(
+    $syncurl,
+    $syncbuttoncontent,
+    [
+        'class' => 'btn btn-secondary ld-sync-now',
+        'id' => 'ld-sync-now',
+        'data-loading-text' => get_string('syncing', 'local_dashboard'),
+    ]
+);
 echo html_writer::end_div();
 
 echo html_writer::start_tag('form', ['method' => 'get', 'action' => new moodle_url('/local/dashboard/index.php'), 'class' => 'ld-filters']);
@@ -219,17 +249,26 @@ echo html_writer::end_div();
 echo local_dashboard_section_heading('h3', 'reviewpipeline', 'pipeline');
 echo html_writer::start_div('ld-pipeline-grid');
 $pipelinecards = [
-    ['totalsessions', $totalsessions, 'ld-pipeline-card--total'],
-    ['zerorisk', $zerorisk, 'ld-pipeline-card--cleared'],
-    ['lowriskpending', $lowriskpending, 'ld-pipeline-card--low'],
-    ['mediumriskpending', $mediumriskpending, 'ld-pipeline-card--medium'],
-    ['highriskpending', $highriskpending, 'ld-pipeline-card--high'],
+    ['totalsessions', $totalsessions, 'ld-pipeline-card--total', null],
+    ['zerorisk', $zerorisk, 'ld-pipeline-card--cleared', null],
+    ['lowriskpending', $lowriskpending, 'ld-pipeline-card--low', 'lowrisk'],
+    ['mediumriskpending', $mediumriskpending, 'ld-pipeline-card--medium', null],
+    ['highriskpending', $highriskpending, 'ld-pipeline-card--high', 'highrisk'],
 ];
-foreach ($pipelinecards as [$label, $value, $cardclass]) {
-    echo html_writer::start_div('ld-pipeline-card ' . $cardclass);
-    echo html_writer::div(number_format($value), 'ld-pipeline-value');
-    echo html_writer::div(get_string($label, 'local_dashboard'), 'ld-pipeline-label');
-    echo html_writer::end_div();
+foreach ($pipelinecards as [$label, $value, $cardclass, $pipelineview]) {
+    $cardinner = html_writer::div(number_format($value), 'ld-pipeline-value')
+        . html_writer::div(get_string($label, 'local_dashboard'), 'ld-pipeline-label');
+    if ($pipelineview !== null) {
+        echo html_writer::link(
+            local_dashboard_action_view_url($r, $pipelineview),
+            $cardinner,
+            ['class' => 'ld-pipeline-card ld-pipeline-card-link ' . $cardclass]
+        );
+    } else {
+        echo html_writer::start_div('ld-pipeline-card ' . $cardclass);
+        echo $cardinner;
+        echo html_writer::end_div();
+    }
 }
 echo html_writer::end_div();
 
@@ -432,7 +471,7 @@ foreach ($distmap as $labelkey => $count) {
 echo html_writer::end_div();
 echo html_writer::start_div('ld-score-stats');
 echo html_writer::div(
-    format_float((float) ($scorestats->avgscore ?? 0), 1) . '<span>' . get_string('avgscorelabel', 'local_dashboard') . '</span>',
+    format_float((float) ($scorestats->avgscore ?? 0), 1) . '%<span>' . get_string('avgscorelabel', 'local_dashboard') . '</span>',
     'ld-score-stat'
 );
 echo html_writer::div(

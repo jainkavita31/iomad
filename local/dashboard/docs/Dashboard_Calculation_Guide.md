@@ -1,171 +1,276 @@
-# Exam Dashboard Calculation Guide
+# Exam Dashboard — How the Numbers Are Calculated
 
-This document explains, in simple terms, how dashboard numbers are calculated in `local_dashboard`.
+This guide explains, in plain language, how the Exam Dashboard works and where each number comes from.
 
-## Filter scope used for calculations
+**Who is this for?** Managers and admins who use the dashboard and want to understand the figures without reading code.
 
-Most metrics are calculated using the selected:
+---
 
-- organisation (`companyid`)
-- time range (`fromtime`)
-- assessment filter (`quizid`, or all if `0`)
+## 1. Filters — what counts?
 
-Common base filters:
+Almost every number on the dashboard respects the filters at the top of the page:
 
-- attempt started within selected range (`qa.timestart >= :fromtime`)
-- course belongs to selected organisation (`company_course`)
+| Filter | What it does |
+|--------|----------------|
+| **Organisation** | Only courses linked to that company are included |
+| **Time range** | Only attempts **started** in that window (e.g. last 7, 30, 90, or 365 days) |
+| **Assessment** | **All assessments** = every proctored quiz in the org’s courses; or pick **one quiz** only |
 
-For proctoring metrics, only quizzes with proctoring enabled are used (`quizaccess_quizproctoring.enableproctoring = 1`).
+**Proctoring rule:** For integrity, pipeline, queue, and score metrics, only quizzes with **ProctorLink / proctoring turned on** are counted.
 
-## Top KPI cards
+**Department filter:** Does **not** change dashboard numbers (only organisation, time range, and assessment apply).
 
-- **Total candidates assessed**  
-  Distinct users with attempts in filter scope.
+---
 
-- **Assessments conducted**  
-  Distinct quizzes with attempts in filter scope.
+## 2. Top KPI cards (the five boxes at the top)
 
-- **Assessments completed / in progress**  
-  Per distinct quiz in scope:
-  - in progress: at least one attempt in state `inprogress` or `overdue`
-  - completed: `assessmentsconducted - assessmentsinprogress`
+### Total candidates assessed
+**How many different people** took at least one attempt in the filtered scope.
 
-- **Flagged sessions**  
-  Distinct attempts where at least one non-deleted proctor event exists with non-empty status.
+- Counts **people**, not attempts.
+- Example: if Alice took 3 quizzes, she counts as **1** candidate.
 
-- **Review backlog**  
-  All pending sessions waiting for review:
-  - `lowriskpending + mediumriskpending + highriskpending`
-  - and (if review log table exists) excludes attempts already logged in `local_dashboard_proctor_review_log` (by `attemptid` when that column exists; otherwise by candidate+quiz)
+### Assessments conducted
+**How many different quizzes** had at least one attempt in scope.
 
-- **Average score**  
-  Average of `(qa.sumgrades * 100 / q.sumgrades)` for finished attempts (`qa.timefinish > 0`). Same attempt set as score distribution when filters match.
+### Assessments completed / in progress
+Shown under “Assessments conducted”:
 
-- **Pass rate (shown under score distribution)**  
-  `passcount(score >= 50) / totalcount * 100` over **attempts**, not distinct candidates. See [Score_Distribution_Calculation_Guide.md](./Score_Distribution_Calculation_Guide.md).
+- **In progress** = at least one attempt still open (`in progress` or `overdue`) on that quiz.
+- **Completed** = conducted minus in progress.
 
-## Review pipeline cards
+### Flagged sessions
+**How many exam sessions** had at least one proctor alert (any non-empty warning status).
 
-Pipeline uses attempt-level warning counts:
+- Counts **sessions (attempts)**, not individual alert rows.
+- One session with 5 alerts still counts as **1** flagged session.
 
-- `warningcount` = count of proctor data rows where:
-  - `pd.deleted = 0`
-  - `pd.status != ''`
+### Review backlog
+**How many sessions still need a human review**, split by risk (see Review pipeline below).
 
-Risk buckets (only attempts with `image_status = 'M'` and not yet reviewed):
+- Formula: low-risk pending + medium-risk pending + high-risk pending.
+- If your site uses the review log, sessions already reviewed are **removed** from the backlog.
 
-- **Zero-risk**: `warningcount = 0`
-- **High-risk pending**: `warningcount > 0` AND (`isautosubmit = 1` OR `warningcount >= 6`)
-- **Medium-risk pending**: `warningcount >= 3` and not high-risk
-- **Low-risk pending**: `warningcount >= 1` and not high/medium (zero-warning attempts are not low-risk)
+### Average score & pass rate
+These appear on the **Average score** KPI (pass rate as subtitle) and again under **Score distribution**.
 
-If review log is enabled, pending buckets exclude attempts already logged as reviewed.
+- **Average score** = mean of all **finished** attempt scores in scope.
+- **Pass rate** = share of **finished attempts** that scored **50% or higher**.
 
-## Priority Review Queue widget
+See [Section 8 — Pass rate](#8-pass-rate-explained-simply) and the [Score distribution guide](./Score_Distribution_Calculation_Guide.md) for detail.
 
-- Only sessions with **alert count > 0** (zero-warning sessions are excluded)
-- **Severity** labels match the review pipeline buckets:
-  - **High-risk**: autosubmit OR `alertcount >= 6`
-  - **Medium**: `alertcount >= 3` (and not high-risk)
-  - **Low**: `alertcount >= 1` (and not medium/high)
-- Sorted by `alertcount DESC`, then `isautosubmit DESC`
-- Shows top **10** rows on dashboard widget
-- Full list is available on queue detail page
-- If review log is enabled, excludes attempts already logged in `local_dashboard_proctor_review_log` (by `attemptid` when available so reattempts appear again until reviewed)
+---
 
-## Top Performers widget
+## 3. Review pipeline (the coloured count cards)
 
-- Ranked by best score percentage
-- Shows top **10** rows on dashboard widget
-- Full list is available on performers detail page
+These cards group **proctored sessions** by how many warnings they have.
 
-## Score distribution
+**Warning count** = number of proctor alert rows where the alert is active (not deleted) and has a status.
 
-The **Score distribution** panel counts **finished attempts** (not candidates, not best-score-per-user). Each attempt’s percentage is `(qa.sumgrades × 100 / q.sumgrades)` and is placed into one of six bands (0–40, 41–50, …, 91–100). With **All assessments**, every proctored quiz in every course linked to the organisation contributes; a course with many quizzes adds one distribution entry **per finished attempt per quiz** (reattempts count separately).
+Only sessions with main proctor image status **`M`** and **not yet reviewed** (when review log is enabled) are in the pipeline.
 
-Summary under the chart: **average** and **pass rate** (attempts ≥ 50%) from the same set; **median** from a sorted list of those attempt scores.
+| Card | Meaning |
+|------|---------|
+| **Total sessions** | All proctored sessions in the time range |
+| **Zero-risk** | No warnings (`warning count = 0`) |
+| **High-risk pending** | Auto-submitted **or** 6 or more warnings |
+| **Medium-risk pending** | 3–5 warnings (and not high-risk) |
+| **Low-risk pending** | 1–2 warnings (and not medium/high) |
 
-**Detailed guide with multi-quiz worked examples:** [Score_Distribution_Calculation_Guide.md](./Score_Distribution_Calculation_Guide.md)
+**Note:** A session with **zero** warnings is **zero-risk**, not “low-risk”.
 
-## Assessment health overview
+---
 
-The **Assessment health overview** panel on the main dashboard shows up to **6** assessment cards (highest **alert** count first, then **flagged**). The full list is on **View all assessments** (`assessments.php`). Data is built by `local_dashboard_fetch_assessment_stats()` in `local/dashboard/lib.php` (same helper used for the cached index payload and the assessments detail page).
+## 4. Priority review queue (dashboard widget)
 
-### Which assessments appear
+Shows up to **10** sessions that need attention most urgently.
 
-- Quizzes in courses linked to the selected organisation (`company_course`)
-- Proctoring enabled on the quiz (`quizaccess_quizproctoring.enableproctoring = 1`)
-- **At least one** non-preview attempt with `qa.timestart` in the selected time range; quizzes with **zero** attempts in that range are omitted from the widget and the assessments table
-- On the main dashboard, the assessment dropdown filter applies (`quizid` limits to one quiz when set)
-- **View all assessments** always opens `assessments.php` with **all** proctored quizzes for the company (assessment filter is not applied on that page; only organisation and time range apply)
+| Rule | Detail |
+|------|--------|
+| Included | Only sessions with **at least 1 alert** |
+| Excluded | Zero-warning sessions |
+| Severity | Same rules as pipeline: High (auto-submit or ≥6 alerts), Medium (≥3), Low (≥1) |
+| Sort order | Most alerts first, then auto-submit |
+| Full list | **View all queue** opens the full queue page |
 
-### Per-assessment counts (time range)
+When review log is enabled, already-reviewed sessions drop off the queue.
 
-All attempt-based figures use non-preview attempts with `qa.timestart >= :fromtime` for that quiz.
+---
 
-| Field (UI) | Meaning |
-|------------|---------|
-| **Candidates** | Distinct users with at least one attempt |
-| **Completed %** | `finished / attempts × 100`, where **finished** = attempts with `qa.timefinish > 0` |
-| **Flagged** | Distinct attempts in the **flagged union** (see below) |
-| **Alerts** (detail table only) | Total proctor event rows (`quizaccess_proctor_data`) with `deleted = 0` and non-empty `status` (not deduplicated by attempt) |
-| **Failed / autosubmit** (detail table) | Distinct attempts with `quizaccess_main_proctor.isautosubmit = 1`, `image_status = 'M'`, `deleted = 0` |
-| **Score** (detail table) | Average `(qa.sumgrades × 100 / q.sumgrades)` over finished attempts |
+## 5. Top performers (dashboard widget)
 
-**Flagged union** (used for the Flagged stat):
+Shows up to **10** rows ranked by **best score** (highest first). The full list uses the same rules on `performers.php`.
 
-Distinct attempts that match **either**:
+| | Score distribution | Top performers |
+|--|-------------------|----------------|
+| What is counted | Every **finished attempt** | One row per **person + quiz** |
+| Score used | That attempt’s score | **Best** score for that person on that quiz |
+| Reattempts | Each attempt counts separately | Only the highest score matters |
 
-1. Autosubmit session: `qmp.isautosubmit = 1`, `qmp.image_status = 'M'`, `qmp.deleted = 0`, or  
-2. At least one warning: proctor data row with `pd.deleted = 0` and `pd.status != ''`
+### Tie-breakers (same score, e.g. both 100%)
 
-### Integrity progress bar (three segments)
+When two rows have the same **best score**, rank is decided in this order:
 
-The bar is a **percentage split across all attempts** in the time range, using the **same alert rules** as the review pipeline and priority queue. Let `attempts` = total attempts (minimum 1 for math).
+1. **Fewer proctor alerts** on that quiz (cleaner session wins)
+2. **Fewer finished attempts** on that quiz (passed in fewer tries)
+3. **Surname, then given name** (stable order if still tied)
 
-Per attempt, `alertcount` = proctor warning rows; `isautosubmit` from main proctor:
+Example: Alice and Bob both **100%** on the same quiz — Alice with **0 alerts** and **1 attempt** ranks above Bob with **2 alerts** and **2 attempts**.
 
-| Bucket | Rule |
-|--------|------|
-| **Cleared** (green) | `alertcount = 0` |
-| **Low** (counts toward orange) | `alertcount` 1–2 |
-| **Medium** (counts toward orange) | `alertcount` 3–5 and not high-risk |
-| **High-risk** (red) | `isautosubmit = 1` or `alertcount ≥ 6` |
+**Full ranking** is on the performers detail page.
 
-1. **Cleared %** (`clearedpct`): `(zero-risk attempts / attempts) × 100`
-2. **Warning %** (`orangepct`): `((low + medium attempts) / attempts) × 100`
-3. **High-risk %** (`highriskpct`): `(high-risk attempts / attempts) × 100`
+---
 
-The three segments sum to 100%.
+## 6. Score distribution (chart and three numbers)
 
-Bar colours: green = cleared, orange = low + medium, red = high-risk.
+The chart shows **how finished attempts spread across score bands**:
 
-Footer labels: **X% cleared** (left), **X% low/medium** (centre when `orangepct > 0.5`), **X% high-risk** (right). Orange segment tooltip: “Low/medium risk (1–5 alerts)”.
+- 0–40%, 41–50%, 51–60%, 61–75%, 76–90%, 91–100%
 
-### Main dashboard vs detail page
+**Important:** Each **attempt** is one bar in the chart — not each person, and not “best score only”.
 
-| | Main dashboard widget | `assessments.php` |
-|--|----------------------|-------------------|
-| Assessments shown | Up to **6** cards (by alert volume); filtered by dashboard assessment dropdown | All qualifying proctored quizzes for the company |
-| Layout | Cards with bar + three headline stats | Sortable table (default sort: alerts DESC, then flagged DESC) |
-| Extra columns | — | Attempts, alerts, failed, score, cleared / warning / high-risk % |
+Under the chart:
 
-Assessment health is included in the index cache payload (`assessmentstats`) when viewing all assessments (`quizid = 0`).
+| Number | Meaning |
+|--------|---------|
+| **Average score** | Mean of all attempt percentages |
+| **Pass rate** | % of attempts scoring **≥ 50%** |
+| **Median** | Middle score when all attempts are sorted |
 
-## Data freshness
+**Detailed examples (courses with many quizzes):** [Score_Distribution_Calculation_Guide.md](./Score_Distribution_Calculation_Guide.md)
 
-- Dashboard index data is cached for all-assessment view
-- Scheduled task refreshes cache every 2 hours
-- "Sync now" triggers immediate refresh for current organisation
-- After a manager opens **Review** (via `proctor_review_entry.php`), the next load of the exam dashboard for that organisation still uses the cached snapshot for bulk metrics, but **recomputes and saves** review-sensitive fields only: review pipeline counts, backlog, and the priority-queue excerpt (`index_snapshot::compute_review_sensitive_slice()`), so backlog/queue update without a full cache rebuild
+---
 
-## Source of truth in code
+## 7. Assessment health overview
 
-Main computation class:
+Up to **6** assessment cards on the main dashboard (most alerts first). **View all assessments** shows every qualifying quiz.
 
-- `local/dashboard/classes/local/index_snapshot.php`
+### Which quizzes appear
+- In the selected organisation’s courses
+- Proctoring enabled
+- At least one attempt **started** in the time range
 
-Related helpers:
+### Numbers on each card
 
-- `local/dashboard/lib.php` (`local_dashboard_fetch_assessment_stats`, review-log pending SQL helpers)
-- `local/dashboard/assessments.php` (full assessment health table)
+| Label | Meaning |
+|-------|---------|
+| **Candidates** | Different people who attempted this quiz |
+| **Completed %** | Finished attempts ÷ all attempts × 100 |
+| **Flagged** | Sessions that were auto-submitted **or** had at least one warning |
+
+### Coloured progress bar (per quiz)
+Splits **all attempts** in the time range into three groups:
+
+| Colour | Meaning |
+|--------|---------|
+| Green (cleared) | No warnings |
+| Orange (low/medium) | 1–5 warnings, not high-risk |
+| Red (high-risk) | Auto-submitted or 6+ warnings |
+
+The three segments always add up to **100%** of attempts on that quiz.
+
+---
+
+## 8. Pass rate — explained simply
+
+**Pass rate does not use Moodle’s quiz “pass grade” setting.** The dashboard always treats **50% or higher** as a pass.
+
+### Formula
+
+```text
+Pass rate = (passing attempts ÷ total finished attempts) × 100
+```
+
+- **Passing attempt** = score **≥ 50%**
+- **Total** = all finished, non-preview, proctored attempts in your filters
+
+### How each score is calculated
+
+```text
+Score % = (attempt grade ÷ quiz maximum grade) × 100
+```
+
+### Example → Pass rate 60.0%
+
+Five finished attempts in **Last 30 days**, **All assessments**:
+
+| Person | Score | Pass? (≥ 50%) |
+|--------|-------|---------------|
+| Alice | 72% | Yes |
+| Bob | 48% | No |
+| Cara | 55% | Yes |
+| Dan | 30% | No |
+| Eve | 81% | Yes |
+
+- Passing attempts = **3**
+- Total attempts = **5**
+- Pass rate = 3 ÷ 5 × 100 = **60.0%**
+
+### What pass rate is **not**
+
+| Common assumption | Actual behaviour |
+|-------------------|------------------|
+| “% of people who passed” | **% of attempts** that passed |
+| Uses quiz pass mark from Moodle | Fixed **50%** threshold |
+| Same as “cleared” in pipeline | Pipeline uses **warnings**, not quiz scores |
+
+### Score exactly 50%
+
+A score of **50.0%** counts as a **pass** for pass rate, even though the chart puts it in the **41–50** band.
+
+---
+
+## 9. When does data update? (cache and cron)
+
+The main dashboard page (**All assessments** view) loads from a **saved snapshot** (cache) so it opens quickly.
+
+| How data refreshes | What happens |
+|--------------------|--------------|
+| **Every 2 hours (automatic)** | Moodle cron runs the task *Refresh exam dashboard index cache* and rebuilds snapshots for all organisations |
+| **Sync now** (button on dashboard) | Rebuilds the snapshot immediately for **your current organisation** |
+| **Refresh the page (F5)** | Shows whatever is **already in the cache** — it does not recalculate everything live |
+| **After opening Review** | Pipeline, backlog, and queue excerpt can update on the **next page load** without waiting for cron |
+| **Single quiz filter** | Always calculated **live** (not from the 2-hour cache) |
+
+### Sub-pages always live
+These pages query the database directly each time:
+
+- Priority queue (full list)
+- Top performers (full ranking)
+- Assessment health (full table)
+
+So they may show slightly newer numbers than the main dashboard KPIs between cron runs.
+
+### If cron has never run
+Use **Sync now** once, or run Moodle cron manually. Until the cache is built, the dashboard may compute live on first visit or show older data.
+
+---
+
+## 10. Quick reference — attempts vs people
+
+| Metric | Counts |
+|--------|--------|
+| Total candidates | **People** |
+| Assessments conducted | **Quizzes** |
+| Flagged sessions | **Attempts / sessions** |
+| Score distribution & pass rate | **Attempts** |
+| Top performers | **Best score per person per quiz** |
+| Review pipeline & queue | **Sessions (attempts)** |
+
+---
+
+## 11. For developers — where the code lives
+
+| Area | File |
+|------|------|
+| Main calculations & cache | `local/dashboard/classes/local/index_snapshot.php` |
+| Helpers (assessment stats, review log) | `local/dashboard/lib.php` |
+| Scheduled cache refresh | `local/dashboard/classes/task/refresh_index_cache.php` |
+| Dashboard page | `local/dashboard/index.php` |
+| On-demand sync | `local/dashboard/sync.php` |
+
+---
+
+## Related document
+
+- [Score_Distribution_Calculation_Guide.md](./Score_Distribution_Calculation_Guide.md) — more examples for pass rate, buckets, and courses with many quizzes

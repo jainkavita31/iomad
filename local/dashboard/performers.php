@@ -133,7 +133,8 @@ if (empty($performertable->data)) {
 echo html_writer::table($performertable);
 
 local_dashboard_init_datatable('#ld-performers-datatable', 50, [
-    'order' => [[2, 'desc']],
+    // Keep server rank order (score, then alerts, then attempts).
+    'order' => [[0, 'asc']],
     'columndefs' => [
         ['orderable' => false, 'targets' => [0, 1, 3]],
     ],
