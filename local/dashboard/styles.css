@@ -9,11 +9,19 @@
 }
 
 .local-dashboard {
+    box-sizing: border-box;
+    max-width: 100%;
     background: color-mix(in srgb, var(--bs-body-bg, #fff) 96%, #e9f0fb);
     padding: 0.8rem 0.9rem 1.2rem;
     border-radius: 16px;
     border: 1px solid color-mix(in srgb, var(--ld-border) 70%, transparent);
     margin-bottom: 0.5rem;
+}
+
+.local-dashboard *,
+.local-dashboard *::before,
+.local-dashboard *::after {
+    box-sizing: border-box;
 }
 
 .local-dashboard .ld-title {
@@ -253,6 +261,7 @@
 .local-dashboard .ld-kpi,
 .local-dashboard .ld-pipeline-card,
 .local-dashboard .ld-panel {
+    min-width: 0;
     background: var(--bs-body-bg, #fff);
     border: 1px solid var(--ld-border);
     border-radius: var(--ld-panel-rad);
@@ -282,6 +291,7 @@
     font-weight: 700;
     line-height: 1.1;
     margin-top: 0.3rem;
+    overflow-wrap: anywhere;
 }
 
 .local-dashboard .ld-kpi-sub {
@@ -405,6 +415,7 @@
     font-size: 2rem;
     font-weight: 700;
     line-height: 1.1;
+    overflow-wrap: anywhere;
 }
 
 .local-dashboard .ld-pipeline-label {
@@ -1037,6 +1048,13 @@
 
 .local-dashboard.ld-detail-page .ld-assessments-detail-table {
     min-width: 920px;
+}
+
+@media (min-width: 1201px) and (max-width: 1500px) {
+    .local-dashboard .ld-kpi-grid,
+    .local-dashboard .ld-pipeline-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 1200px) {
