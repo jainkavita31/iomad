@@ -78,6 +78,17 @@
     padding-top: 0.45rem;
 }
 
+/*
+ * Trim the large empty header gap above the dashboard.
+ * The space theme's report layout wraps the page heading (simple_header) in
+ * .wrapper-header (margin-bottom: 30px). On the dashboard index the heading is
+ * intentionally empty (set_heading('')), so collapse that empty block. Scoped to
+ * the index page body id so subpages (queue/performers/etc.) keep their headings.
+ */
+body#page-local-dashboard-index .wrapper-header {
+    display: none;
+}
+
 .local-dashboard .ld-cache-asof {
     font-weight: 600;
     color: #334155;
