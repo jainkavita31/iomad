@@ -1050,13 +1050,6 @@
     min-width: 920px;
 }
 
-@media (min-width: 1201px) and (max-width: 1500px) {
-    .local-dashboard .ld-kpi-grid,
-    .local-dashboard .ld-pipeline-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-}
-
 @media (max-width: 1200px) {
     .local-dashboard .ld-kpi-grid,
     .local-dashboard .ld-pipeline-grid {
