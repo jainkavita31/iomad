@@ -1,0 +1,322 @@
+//---- Database for default UI
+//---- Module Activity
+//----
+//---- TODO: Add different styles and templates
+
+.picturesingle {
+    img {
+        max-width: 100%;
+        border-radius: $btn-border-radius;
+    }
+}
+
+.recordauthor {
+    margin-bottom: 1rem;
+    padding: .35rem;
+    border-radius: $btn-border-radius;
+    border: 1px solid $border-color;
+
+    a {
+        display: inline-flex;
+    }
+}
+
+#page-mod-data-view {
+    .jsenabled .comment-link {
+        margin-top: 2rem;
+    }
+}
+
+.data-timeinfo {
+    font-size: $font-size-sm;
+    color: $body-color-light;
+
+    .theme-dark & {
+        color: $dm-body-color-light;     
+    }
+}
+
+.imagegallery-listentry .card-title {
+    font-size: $font-size-md!important;
+}
+
+#imagegallery-list img.list_picture {
+    border-radius: $btn-border-radius $btn-border-radius 0 0;
+}
+
+#page-mod-data-view .datapreferences {
+    #options {
+        label, .font-weight-bold {
+            font-size: $font-size-xs;
+            margin: 5px;
+        }
+    
+        .custom-select,
+        .form-control {
+            padding: 8px 12px;
+            height: auto;
+            font-size: $font-size-xs;
+        }
+    
+        .custom-select {
+            padding-right: 20px;
+        }
+    
+        .btn {
+            padding: 6px 14px;
+            font-size: $font-size-xs;
+        }
+    
+        [type="checkbox"] {
+            width: 20px;
+            height: 20px;
+        }
+    }
+}
+
+.imagegallery-asearch {
+    padding: 16px;
+    border-radius: $btn-border-radius;
+    background-color: $gray-100;
+    
+    .theme-dark & {
+        background-color: $dm-gray-100;
+    }
+}
+
+
+#proposals-list {
+
+    .card {
+        margin-bottom: 0;
+    
+        a {
+            &:before {
+                display: none;
+            }
+        }
+    
+    
+        a[data-toggle="collapse"] {
+            display: inline-flex!important;
+            align-items: center!important;
+            justify-content: center!important;
+
+            .fa {
+                min-width: 30px;
+                width: 30px;
+                height: 30px;
+                line-height: 30px;
+                font-size: 14px;
+                color: $gray-900;
+                background-color: $gray-100;
+                border-radius: $btn-border-radius;
+                margin-right: 10px;
+    
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+    
+                .theme-dark & {
+                    background-color: $dm-gray-100;
+                    color: $dm-gray-900;
+                }
+            }
+    
+            font-size: $font-size-md;
+            font-weight: $font-weight-medium!important;
+            color: $body-color!important;
+    
+            .theme-dark & {
+                color: $dm-body-color!important;
+            }
+        }
+    
+        .card-header {
+            padding: 10px;
+        }
+    
+        .preview-disabled {
+            display: none!important;
+        }
+        // Hide empty span in action menu button.
+        .action-menu .btn.btn-icon {
+            span:empty {
+                display: none!important;
+            }
+        }
+    
+    }
+
+    .card-body {
+        font-size: $font-size-sm;
+    }
+}
+
+.proposals-single {
+
+    .card-title {
+        margin: 0 20px 10px;
+        font-size: $font-size-xs;
+    }
+
+    .row.my-4 {
+        margin: 0!important;
+        padding: 10px!important;
+        background-color: $gray-100;
+        border-radius: $btn-border-radius;
+
+        .col-auto {
+            padding: 0!important;
+        }
+
+        .row * {
+            padding: 0!important;
+            font-size: $font-size-sm;
+        }
+
+        .theme-dark & {
+            background-color: $dm-gray-100;
+        }
+    }
+
+}
+
+.proposals-single-body {
+    border: 1px solid $border-color;
+    border-radius: $btn-border-radius;
+    padding: 5px 20px;
+
+    .theme-dark & {
+        border-color: $dm-border-color;
+    }
+
+    .row {
+        margin-bottom: 20px;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        margin-top: 0!important;
+        margin-bottom: 10px!important;
+    }
+
+    h3 {
+        font-size: $font-size-xs;
+    }
+
+    p {
+        font-size: $font-size-sm;
+    }
+
+    .singleentry-status {
+        background: $gray-100;
+        border-radius: $btn-border-radius;
+        padding: 10px 0;
+        font-size: $font-size-xs;
+
+        .col {
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .theme-dark & {
+            background: $dm-gray-100;
+        }
+
+        h3 {
+            font-size: $font-size-xs;
+            margin-bottom: 0!important;
+        }
+
+        p {
+            font-size: $font-size-xs;
+            margin-bottom: 0!important;
+        }
+    }
+
+}
+
+#data-singleview-content .rating-aggregate-container {
+    display: block;
+    margin: 0 0 30px;
+}
+
+.datapreferences {
+    br {display: none!important;}
+    #options .d-flex {
+        margin-top: 10px;
+        display: inline-flex!important;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+
+        div {
+            display: inline-flex;
+            align-items: center;
+        }
+    }
+
+    #advsearch-save-sec {
+        margin-left: 30px!important;
+    }
+
+    select, input {
+        margin-right: 10px!important;
+    }
+}
+
+#page-mod-data-view div#data_adv_form {
+    padding: 0 20px 20px;
+
+    .proposals-asearch {
+        padding: 0!important;
+    }
+}
+
+#journal-list {
+    .card {
+        padding-bottom: 0!important;
+    
+        .card-title {
+            font-size: $font-size-lg;
+        }
+
+        .card-text {
+            font-size: $font-size-base;
+
+            p {
+                &:last-child {
+                    margin-bottom: 0!important;
+                }
+            }
+        }
+    
+        .row.my-4 {
+            margin: 0!important;
+            padding: 10px!important;
+            background-color: $gray-100;
+            border-radius: $btn-border-radius;
+    
+            .col-auto {
+                padding: 0!important;
+            }
+    
+            .row * {
+                padding: 0!important;
+                font-size: $font-size-sm;
+            }
+    
+            .theme-dark & {
+                background-color: $dm-gray-100;
+            }
+        }
+    }
+}
+
+#imagegallery-list {
+    .card-footer {
+        padding: 0;
+    }
+}

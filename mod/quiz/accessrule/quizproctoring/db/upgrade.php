@@ -1,0 +1,812 @@
+<?php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Proctoring upgrade file.
+ *
+ * @package    quizaccess_quizproctoring
+ * @subpackage quizproctoring
+ * @copyright  2020 Mahendra Soni <ms@taketwotechnologies.com> {@link https://taketwotechnologies.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+/**
+ * Quiz module upgrade function.
+ * @param string $oldversion the version we are upgrading from.
+ */
+function xmldb_quizaccess_quizproctoring_upgrade($oldversion) {
+    global $CFG, $DB, $USER, $SESSION;
+
+    $dbman = $DB->get_manager();
+
+    if ($oldversion < 2020092406) {
+        // Define field deleted to be added to quizaccess_proctor_data.
+        $table = new xmldb_table('quizaccess_proctor_data');
+        $field = new xmldb_field('deleted', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'attemptid');
+
+        // Conditionally launch add field deleted.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Proctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2020092406, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2020092407) {
+        // Define field triggeresamail to be added to quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $field = new xmldb_field('triggeresamail', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'time_interval');
+
+        // Conditionally launch add field triggeresamail.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Proctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2020092407, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2020092408) {
+        // Define field warning_threshold to be added to quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $field = new xmldb_field('warning_threshold', XMLDB_TYPE_INTEGER, '2', null, null, null, null, 'triggeresamail');
+
+        // Conditionally launch add field warning_threshold.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Define field status to be added to quizaccess_proctor_data.
+        $table = new xmldb_table('quizaccess_proctor_data');
+        $field = new xmldb_field('status', XMLDB_TYPE_CHAR, '100', null, null, null, null, 'deleted');
+
+        // Conditionally launch add field status.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Proctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2020092408, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2020092409) {
+        // Define field ci_test_id to be added to quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $field = new xmldb_field('ci_test_id', XMLDB_TYPE_INTEGER, '20', null, null, null, null, 'warning_threshold');
+
+        // Conditionally launch add field ci_test_id.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Proctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2020092409, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2020092410) {
+        // Define field quiz_sku to be added to quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $field = new xmldb_field('quiz_sku', XMLDB_TYPE_CHAR, '100', null, null, null, null, 'ci_test_id');
+
+        // Conditionally launch add field quiz_sku.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Proctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2020092410, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2021060400) {
+        // Define field quiz_sku to be added to quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $field = new xmldb_field('proctoringvideo_link', XMLDB_TYPE_TEXT, '', null, null, null, null, 'quiz_sku');
+
+        // Conditionally launch add field quiz_sku.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Proctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2021060400, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2021060401) {
+        // Define index quizid-enableproctoring (unique) to be added to quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $index = new xmldb_index('quizid-enableproctoring', XMLDB_INDEX_UNIQUE, ['quizid', 'enableproctoring']);
+
+        // Conditionally launch add index quizid-enableproctoring.
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        // Define index quizid-attemptid-userid-image_status-status (not unique) to be added to quizaccess_proctor_data.
+        $table = new xmldb_table('quizaccess_proctor_data');
+        $index = new xmldb_index(
+            'quizid-attemptid-userid-image_status-status',
+            XMLDB_INDEX_NOTUNIQUE,
+            ['quizid', 'attemptid', 'userid', 'image_status', 'status']
+        );
+
+        // Conditionally launch add index quizid-attemptid-userid-image_status-status.
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        // Proctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2021060401, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2023031600) {
+        // Define field triggeresamail to be dropped from quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $field = new xmldb_field('triggeresamail');
+
+        // Conditionally launch drop field triggeresamail.
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->drop_field($table, $field);
+        }
+
+        // Define field ci_test_id to be dropped from quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $field = new xmldb_field('ci_test_id');
+
+        // Conditionally launch drop field ci_test_id.
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->drop_field($table, $field);
+        }
+
+        // Define field quiz_sku to be dropped from quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $field = new xmldb_field('quiz_sku');
+
+        // Conditionally launch drop field quiz_sku.
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->drop_field($table, $field);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2023031600, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2024020251) {
+        // Define field enableteacherproctor to be added to quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $field = new xmldb_field(
+            'enableteacherproctor',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'proctoringvideo_link'
+        );
+
+        // Conditionally launch add field enableteacherproctor.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2024020251, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2024092404) {
+        // Define field isautosubmit to be added to quizaccess_proctor_data.
+        $table = new xmldb_table('quizaccess_proctor_data');
+        $field = new xmldb_field('isautosubmit', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'status');
+
+        // Conditionally launch add field isautosubmit.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2024092404, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2024102700) {
+        // Update img_check_time to 30 for all instances in quizaccess_quizproctoring.
+        $DB->set_field('config_plugins', 'value', '30', [
+            'plugin' => 'quizaccess_quizproctoring',
+            'name' => 'img_check_time',
+        ]);
+
+        // Update proctoring_image_show to 1 for all instances in quizaccess_quizproctoring.
+        $DB->set_field('config_plugins', 'value', '1', [
+            'plugin' => 'quizaccess_quizproctoring',
+            'name' => 'proctoring_image_show',
+        ]);
+
+        // Update the plugin savepoint.
+        upgrade_plugin_savepoint(true, 2024102700, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2024102910) {
+        // Define field storeallimages to be added to quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $field = new xmldb_field('storeallimages', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'enableteacherproctor');
+
+        // Conditionally launch add field storeallimages.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2024102910, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2024102911) {
+        // Define field enableprofilematch to be added to quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $field = new xmldb_field('enableprofilematch', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'storeallimages');
+
+        // Conditionally launch add field enableprofilematch.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2024102911, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2024103002) {
+        // Define field enablestudentvideo to be added to quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $field = new xmldb_field(
+            'enablestudentvideo',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'enableprofilematch'
+        );
+
+        // Conditionally launch add field enablestudentvideo.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2024103002, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025010600) {
+        // Update the default value for the serviceoption setting.
+        set_config('serviceoption', 'take2', 'quizaccess_quizproctoring');
+
+        // Update the plugin version to mark the change as complete.
+        upgrade_plugin_savepoint(true, 2025010600, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025040201) {
+        // Define field enableeyecheck to be added to quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $field = new xmldb_field('enableeyecheck', XMLDB_TYPE_INTEGER, '1', null, null, null, '0', 'proctoringvideo_link');
+
+        // Conditionally launch add field enableeyecheck.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2025040201, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025041402) {
+        // Define field response to be added to quizaccess_proctor_data.
+        $table = new xmldb_table('quizaccess_proctor_data');
+        $field = new xmldb_field('response', XMLDB_TYPE_CHAR, '1000', null, null, null, null, 'isautosubmit');
+
+        // Conditionally launch add field response.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2025041402, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025042301) {
+        $timestamp = time();
+        $randombytes = random_bytes(8);
+        $hexstringwithtimestamp = bin2hex($randombytes) . '_' . $timestamp;
+        set_config('quizproctoringhexstring', $hexstringwithtimestamp, 'quizaccess_quizproctoring');
+
+        upgrade_plugin_savepoint(true, 2025042301, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025042904) {
+        // Define field enableeyecheckreal to be added to quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $field = new xmldb_field('enableeyecheckreal', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'enableeyecheck');
+
+        // Conditionally launch add field enableeyecheckreal.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2025042904, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025052801) {
+        $user = $DB->get_record('user', ['id' => $USER->id], '*', MUST_EXIST);
+        $plugin = core_plugin_manager::instance()->get_plugin_info('quizaccess_quizproctoring');
+        $release = $plugin->release;
+
+        $record = new stdClass();
+        $record->firstname = $user->firstname;
+        $record->lastname  = $user->lastname;
+        $record->email     = $user->email;
+        $record->domain    = $CFG->wwwroot;
+        $record->moodle_v  = get_config('moodle', 'release');
+        $record->previously_installed_v = '(Build: ' . $oldversion . ')';
+        $record->proctorlink_version = $release;
+        $SESSION->proctorlink_version = $release;
+
+        $postdata = json_encode($record);
+
+        $curl = new \curl();
+        $url = 'https://proctoring.taketwotechnologies.com/create';
+        $header = [
+            'Content-Type: application/json',
+        ];
+        $curl->setHeader($header);
+        $result = $curl->post($url, $postdata);
+
+        upgrade_plugin_savepoint(true, 2025052801, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025061300) {
+        $task = new \quizaccess_quizproctoring\task\images_adhoc_task();
+        $task->set_component('quizaccess_quizproctoring');
+
+        \core\task\manager::queue_adhoc_task($task);
+
+        upgrade_plugin_savepoint(true, 2025061300, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025061702) {
+        // Define table quizaccess_main_proctor to be created.
+        $table = new xmldb_table('quizaccess_main_proctor');
+
+        // Adding fields to table quizaccess_main_proctor.
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '20', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('quizid', XMLDB_TYPE_INTEGER, '20', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('user_identity', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('userimg', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('image_status', XMLDB_TYPE_CHAR, '1', null, XMLDB_NOTNULL, null, 'M');
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '20', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '20', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('aws_response', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('attemptid', XMLDB_TYPE_INTEGER, '11', null, null, null, null);
+        $table->add_field('deleted', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('status', XMLDB_TYPE_CHAR, '100', null, null, null, null);
+        $table->add_field('isautosubmit', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('response', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('iseyecheck', XMLDB_TYPE_INTEGER, '1', null, null, null, '1');
+
+        // Adding keys to table quizaccess_main_proctor.
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+
+        // Adding indexes to table quizaccess_main_proctor.
+        $table->add_index('indexing', XMLDB_INDEX_NOTUNIQUE, ['quizid', 'image_status',
+            'userid', 'deleted', 'status', 'attemptid', 'isautosubmit']);
+
+        // Conditionally launch create table for quizaccess_main_proctor.
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2025061702, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025061703) {
+        // Define field enableuploadidentity to be added to quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $field = new xmldb_field('enableuploadidentity', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'enableeyecheck');
+
+        // Conditionally launch add field enableuploadidentity.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2025061703, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025061704) {
+        $task = new \quizaccess_quizproctoring\task\mainImagesTask();
+        $task->set_component('quizaccess_quizproctoring');
+
+        \core\task\manager::queue_adhoc_task($task);
+        // Mark the upgrade savepoint.
+        upgrade_plugin_savepoint(true, 2025061704, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025062401) {
+        // Define table quizaccess_proctor_alert to be created.
+        $table = new xmldb_table('quizaccess_proctor_alert');
+
+        // Adding fields to table quizaccess_proctor_alert.
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '20', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('quizid', XMLDB_TYPE_INTEGER, '20', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('alertmessage', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('attemptid', XMLDB_TYPE_INTEGER, '11', null, null, null, null);
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '20', null, XMLDB_NOTNULL, null, '0');
+
+        // Adding keys to table quizaccess_proctor_alert.
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+
+        // Conditionally launch create table for quizaccess_proctor_alert.
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2025062401, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025070600) {
+        // Changing type of field response on table quizaccess_proctor_data to text.
+        $table = new xmldb_table('quizaccess_proctor_data');
+        $field = new xmldb_field('response', XMLDB_TYPE_TEXT, null, null, null, null, null, 'isautosubmit');
+
+        // Launch change of type for field response.
+        $dbman->change_field_type($table, $field);
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2025070600, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025120101) {
+        $user = $DB->get_record('user', ['id' => $USER->id], '*', MUST_EXIST);
+        $plugin = core_plugin_manager::instance()->get_plugin_info('quizaccess_quizproctoring');
+        $release = $plugin->release;
+
+        $record = new stdClass();
+        $record->firstname = $user->firstname;
+        $record->lastname  = $user->lastname;
+        $record->email     = $user->email;
+        $record->domain    = $CFG->wwwroot;
+        $record->moodle_v  = get_config('moodle', 'release');
+        $record->previously_installed_v = '(Build: ' . $oldversion . ')';
+        $record->proctorlink_version = $release;
+        $SESSION->proctorlink_version = $release;
+
+        $postdata = json_encode($record);
+
+        $curl = new \curl();
+        $url = 'https://proctoring.taketwotechnologies.com/create';
+        $header = [
+            'Content-Type: application/json',
+        ];
+        $curl->setHeader($header);
+        $result = $curl->post($url, $postdata);
+
+        upgrade_plugin_savepoint(true, 2025120101, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025120102) {
+        // Fetch and update plan information during plugin upgrade.
+        require_once($CFG->dirroot . '/mod/quiz/accessrule/quizproctoring/lib.php');
+
+        try {
+            $planresponse = \quizaccess_quizproctoring\api::getplaninfo();
+            if (!empty($planresponse)) {
+                $data = json_decode($planresponse, true);
+                $plantype = isset($data['plan']['planType']) ? $data['plan']['planType'] : '';
+
+                // Set empty flag based on whether plantype is not empty.
+                if (!empty($plantype)) {
+                    set_config('getplanresponseempty', 0, 'quizaccess_quizproctoring');
+                } else {
+                    set_config('getplanresponseempty', 1, 'quizaccess_quizproctoring');
+                }
+
+                // Handle credit-based plan type.
+                if ($plantype === 'credit') {
+                    $credits = isset($data['plan']['details']['credits']) ? (int)$data['plan']['details']['credits'] : 0;
+
+                    // Get total credits bought from creditHistory.
+                    $totalcreditsbought = 0;
+                    if (isset($data['plan']['details']['creditHistory']) && is_array($data['plan']['details']['creditHistory'])) {
+                        // Sum all creditsBought from creditHistory.
+                        foreach ($data['plan']['details']['creditHistory'] as $history) {
+                            if (isset($history['creditsBought'])) {
+                                $totalcreditsbought += (int)$history['creditsBought'];
+                            }
+                        }
+                    }
+
+                    set_config('getplancredits', $credits, 'quizaccess_quizproctoring');
+                    set_config('getplantotalcredits', $totalcreditsbought, 'quizaccess_quizproctoring');
+                    set_config('getplanexpiry', 0, 'quizaccess_quizproctoring'); // Clear expiry for credit plans.
+
+                    if ($credits >= 0) {
+                        set_config('getplaninfo', 1, 'quizaccess_quizproctoring');
+                        set_config('getplanname', 'Credit Base Plan', 'quizaccess_quizproctoring');
+                    } else {
+                        set_config('getplaninfo', 0, 'quizaccess_quizproctoring');
+                        set_config('getplanname', '', 'quizaccess_quizproctoring');
+                    }
+                } else {
+                    // Handle different field names: expiryDate (free plan) or expireDate (subscription plan).
+                    $expiretimestamp = null;
+                    if (isset($data['plan']['details']['expiryDate'])) {
+                        // Free plan uses 'expiryDate'.
+                        $expiretimestamp = (int)$data['plan']['details']['expiryDate'];
+                    } else if (isset($data['plan']['details']['expireDate'])) {
+                        // Subscription plan uses 'expireDate'.
+                        $expiretimestamp = (int)$data['plan']['details']['current_end'];
+                    }
+
+                    // Clear credits for non-credit plans.
+                    set_config('getplancredits', 0, 'quizaccess_quizproctoring');
+                    set_config('getplantotalcredits', 0, 'quizaccess_quizproctoring');
+
+                    if ($expiretimestamp !== null) {
+                        $currenttimestamp = time();
+                        set_config('getplanexpiry', $expiretimestamp, 'quizaccess_quizproctoring');
+                        if ($expiretimestamp < $currenttimestamp) {
+                            set_config('getplaninfo', 0, 'quizaccess_quizproctoring');
+                            set_config('getplanname', $data['plan']['planName'], 'quizaccess_quizproctoring');
+                        } else {
+                            set_config('getplaninfo', 1, 'quizaccess_quizproctoring');
+
+                            if (!empty($data['plan']['planName'])) {
+                                set_config('getplanname', $data['plan']['planName'], 'quizaccess_quizproctoring');
+                            }
+                        }
+                    } else {
+                        set_config('getplanexpiry', 0, 'quizaccess_quizproctoring');
+                        set_config('getplaninfo', 0, 'quizaccess_quizproctoring');
+                        set_config('getplanname', '', 'quizaccess_quizproctoring');
+                    }
+                }
+            } else {
+                // Plan response is empty, set empty flag to 1.
+                set_config('getplanresponseempty', 1, 'quizaccess_quizproctoring');
+                set_config('getplaninfo', 0, 'quizaccess_quizproctoring');
+                set_config('getplanname', '', 'quizaccess_quizproctoring');
+            }
+        } catch (Exception $exception) {
+            mtrace('Error in API during upgrade: ' . $exception->getMessage());
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2025120102, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025120103) {
+        // Define field issubmitbyteacher to be added to quizaccess_main_proctor.
+        $table = new xmldb_table('quizaccess_main_proctor');
+        $field = new xmldb_field('issubmitbyteacher', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'isautosubmit');
+
+        // Conditionally launch add field issubmitbyteacher.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2025120103, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025120104) {
+        // Define field iseyedisabledbyteacher to be added to quizaccess_main_proctor.
+        $table = new xmldb_table('quizaccess_main_proctor');
+        $field = new xmldb_field('iseyedisabledbyteacher', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'iseyecheck');
+
+        // Conditionally launch add field iseyedisabledbyteacher.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2025120104, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025120602) {
+        // Define field deviceinfo to be added to quizaccess_main_proctor.
+        $table = new xmldb_table('quizaccess_main_proctor');
+        $field = new xmldb_field('deviceinfo', XMLDB_TYPE_CHAR, '50', null, null, null, null, 'iseyedisabledbyteacher');
+
+        // Conditionally launch add field deviceinfo.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2025120602, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025120603) {
+        // Define field teacherid to be added to quizaccess_proctor_alert.
+        $table = new xmldb_table('quizaccess_proctor_alert');
+        $field = new xmldb_field('teacherid', XMLDB_TYPE_INTEGER, '20', null, null, null, null, 'attemptid');
+
+        // Conditionally launch add field teacherid.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2025120603, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025120604) {
+        // Define field enablerecordaudio to be added to quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $field = new xmldb_field(
+            'enablerecordaudio',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'enableeyecheckreal'
+        );
+
+        // Conditionally launch add field enablerecordaudio.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2025120604, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2025120605) {
+        // Define table quizaccess_proctor_audio to be created.
+        $table = new xmldb_table('quizaccess_proctor_audio');
+
+        // Adding fields to table quizaccess_proctor_audio.
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '20', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('quizid', XMLDB_TYPE_INTEGER, '20', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('attemptid', XMLDB_TYPE_INTEGER, '11', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '20', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('audioname', XMLDB_TYPE_CHAR, '100', null, null, null, null);
+        $table->add_field('deleted', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0');
+
+        // Adding keys to table quizaccess_proctor_audio.
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+
+        // Conditionally launch create table for quizaccess_proctor_audio.
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2025120605, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2026030101) {
+        // Define field warningemailtriggered to be added to quizaccess_main_proctor.
+        $table = new xmldb_table('quizaccess_main_proctor');
+        $field = new xmldb_field(
+            'warningemailtriggered',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'deviceinfo'
+        );
+
+        // Conditionally launch add field warningemailtriggered.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2026030101, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2026030102) {
+        // Define field warning_email_threshold to be added to quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $field = new xmldb_field(
+            'warning_email_threshold',
+            XMLDB_TYPE_INTEGER,
+            '2',
+            null,
+            null,
+            null,
+            null,
+            'warning_threshold'
+        );
+
+        // Conditionally launch add field warning_email_threshold.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2026030102, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2026030103) {
+        // Rename legacy column alert_message to alertmessage in quizaccess_proctor_alert, if it exists.
+        $table = new xmldb_table('quizaccess_proctor_alert');
+        $field = new xmldb_field('alert_message', XMLDB_TYPE_TEXT, null, null, null, null, null, 'quizid');
+
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->rename_field($table, $field, 'alertmessage');
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2026030103, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2026030104) {
+        // Define field warning_email_trigger_role to be added to quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $field = new xmldb_field(
+            'warning_email_trigger_role',
+            XMLDB_TYPE_INTEGER,
+            '10',
+            null,
+            null,
+            null,
+            null,
+            'warning_email_threshold'
+        );
+
+        // Conditionally launch add field warning_email_trigger_role.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2026030104, 'quizaccess', 'quizproctoring');
+    }
+
+    if ($oldversion < 2026031000) {
+        // Define field enableobjectdetect to be added to quizaccess_quizproctoring.
+        $table = new xmldb_table('quizaccess_quizproctoring');
+        $field = new xmldb_field(
+            'enableobjectdetect',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'enablerecordaudio'
+        );
+
+        // Conditionally launch add field enableobjectdetect.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Quizproctoring savepoint reached.
+        upgrade_plugin_savepoint(true, 2026031000, 'quizaccess', 'quizproctoring');
+    }
+
+    return true;
+}

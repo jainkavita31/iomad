@@ -128,6 +128,10 @@ class primary implements renderable, templatable {
             }
         }
 
+        if (function_exists('local_dashboard_filter_custom_menu_items_text')) {
+            $custommenuitems = local_dashboard_filter_custom_menu_items_text($custommenuitems ?? '');
+        }
+
         // Early return if a custom menu does not exists.
         if (empty($custommenuitems)) {
             return [];
